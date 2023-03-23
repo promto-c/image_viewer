@@ -5,7 +5,6 @@ import numpy as np
 from OpenGL import GL
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-
 class GLWidget(QtWidgets.QOpenGLWidget):
     def __init__(self, parent=None, image=None):
         super(GLWidget, self).__init__(parent)
@@ -71,7 +70,8 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         self.zoom = min(self.width() / self.image_width, self.height() / self.image_height)
         self.update()
 
-    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
+    def resizeGL(self, width: int, height: int) -> None:
+        self.gl.glViewport(0, 0, width, height)
         self.fit_image_in_view()
 
     def initializeGL(self):
@@ -131,9 +131,6 @@ class GLWidget(QtWidgets.QOpenGLWidget):
 
         self.gl.glFlush()
 
-
-
-
 class MainUI(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
@@ -145,7 +142,7 @@ class MainUI(QtWidgets.QWidget):
         self.image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         # NOTE: Tets float image
-        self.image = self.image.astype( np.float32 ) / 255.0
+        self.image = self.image.astype(np.float32) / 255.0
 
         self.setup_ui()
 
