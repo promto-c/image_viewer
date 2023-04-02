@@ -26,6 +26,8 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         self.drag_start = None
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
+        self.texture_id = None
+
     def sizeHint(self):
         return QtCore.QSize(self.image_width, self.image_height)
 
@@ -47,6 +49,24 @@ class GLWidget(QtWidgets.QOpenGLWidget):
             # Return early if the data type is not supported
             return
 
+        # Create an OpenGL texture ID and bind the texture
+        self.texture_id = self.gl.glGenTextures(1)
+
+        #
+        self.gl.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
+
+        # Set the texture minification/magnification filter
+        self.gl.glTexParameterf(
+            GL.GL_TEXTURE_2D,
+            GL.GL_TEXTURE_MIN_FILTER,
+            GL.GL_NEAREST
+        )
+        self.gl.glTexParameterf(
+            GL.GL_TEXTURE_2D,
+            GL.GL_TEXTURE_MAG_FILTER,
+            GL.GL_NEAREST
+        )
+        
         # Use glTexImage2D to set the image texture in OpenGL
         self.gl.glTexImage2D(
             self.gl.GL_TEXTURE_2D,          # target
@@ -128,18 +148,6 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         # Enable texture mapping
         self.gl.glEnable(GL.GL_TEXTURE_2D)
 
-        # Set the texture minification/magnification filter
-        self.gl.glTexParameterf(
-            GL.GL_TEXTURE_2D,
-            GL.GL_TEXTURE_MIN_FILTER,
-            GL.GL_NEAREST
-        )
-        self.gl.glTexParameterf(
-            GL.GL_TEXTURE_2D,
-            GL.GL_TEXTURE_MAG_FILTER,
-            GL.GL_NEAREST
-        )
-
         # Set the image to display
         self.set_image(self.image)
 
@@ -150,8 +158,11 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         # Clear the buffer
         self.gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
+        #
+        self.gl.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
+
         # Set the viewport
-        self.gl.glViewport(0, 0, self.width(), self.height())
+        # self.gl.glViewport(0, 0, self.width(), self.height())
 
         # Set the projection matrix
         self.gl.glMatrixMode(GL.GL_PROJECTION)
@@ -194,21 +205,37 @@ class MainUI(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(MainUI, self).__init__(parent)
 
-        image_path = r'example_image.jpg'
+        image_path = r'example_image.1001.jpg'
+        image_path2 = r'example_image.1002.jpg'
 
-        image = cv2.imread( image_path )
+        image = cv2.imread(image_path)
         self.image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # self.image = self.image.astype(np.float32) / 255.0
 
-        # NOTE: Tets float image
-        self.image = self.image.astype(np.float32) / 255.0
+        image2 = cv2.imread(image_path2)
+        self.image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2RGB)
+        self.image2 = self.image2.astype(np.float32) / 255.0
 
         self.setup_ui()
 
     def setup_ui(self):
         self.gl_widget = GLWidget(self, image=self.image)
+        self.switch_button = QtWidgets.QPushButton("Switch Image", self)
+        self.switch_button.clicked.connect(self.switch_image)
+
         self.main_layout = QtWidgets.QGridLayout()
-        self.main_layout.addWidget(self.gl_widget,0,0)
+        self.main_layout.addWidget(self.gl_widget, 0, 0)
+        self.main_layout.addWidget(self.switch_button, 1, 0)
         self.setLayout(self.main_layout)
+
+    def switch_image(self):
+        if np.array_equal(self.gl_widget.image, self.image):
+            self.gl_widget.image = self.image2
+        else:
+            self.gl_widget.image = self.image
+
+        self.gl_widget.set_image(self.gl_widget.image)
+        self.gl_widget.update()
 
 if __name__ == "__main__":
 
