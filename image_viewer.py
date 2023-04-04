@@ -2,10 +2,31 @@ import sys
 import cv2
 import numpy as np
 
-from typing import Tuple
+from typing import Tuple, List
 
 from OpenGL import GL
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+class LineLayer:
+    def __init__(self, line_start, line_end, line_width=2.0, line_color=(1.0, 0.0, 0.0)):
+        self.line_start = line_start
+        self.line_end = line_end
+        self.line_width = line_width
+        self.line_color = line_color
+
+    def render(self):
+        # Set the line width to the calculated pixel size
+        GL.glLineWidth(self.line_width)
+
+        # Draw the line
+        GL.glColor3f(*self.line_color)
+        GL.glBegin(GL.GL_LINES)
+        GL.glVertex2f(*self.line_start)
+        GL.glVertex2f(*self.line_end)
+        GL.glEnd()
+
+        # Reset the color to white
+        GL.glColor3f(1.0, 1.0, 1.0)
 
 class GLWidget(QtWidgets.QOpenGLWidget):
 
@@ -31,6 +52,8 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         # test draw line
         self.line_start = None
         self.line_end = None
+
+        self.line_layers: List[LineLayer] = list()
 
     def sizeHint(self):
         return QtCore.QSize(self.image_width, self.image_height)
@@ -113,6 +136,10 @@ class GLWidget(QtWidgets.QOpenGLWidget):
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
         if event.button() == QtCore.Qt.LeftButton:
             self.line_end = self.pixel_to_gl_coords(event.pos())
+
+            line = LineLayer(line_start=self.line_start, line_end=self.line_end)
+            self.line_layers.append(line)
+
             self.update()
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
@@ -216,6 +243,7 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         self.gl.glTranslatef(x_offset, y_offset, 0.0)
         self.gl.glScalef(self.zoom, self.zoom, 1.0)
 
+        # NOTE: This part should be grouped as render() method of imageLayer
         # Draw the image quad
         self.gl.glBegin(GL.GL_QUADS)
         self.gl.glTexCoord2f(0.0, 1.0)
@@ -228,19 +256,11 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         self.gl.glVertex2f(0.0, self.image_height)
         self.gl.glEnd()
 
-        # Set the line width to the calculated pixel size
-        self.gl.glLineWidth(2.0)
-
         # Draw the line
-        if self.line_start is not None and self.line_end is not None:
-            self.gl.glColor3f(1.0, 0.0, 0.0)
-            self.gl.glBegin(GL.GL_LINES)
-            self.gl.glVertex2f(*self.line_start)
-            self.gl.glVertex2f(*self.line_end)
-            self.gl.glEnd()
+        if self.line_layers:
+            for line in self.line_layers:
+                line.render()
 
-            self.gl.glColor3f(1.0, 1.0, 1.0)
-            
         # Flush the OpenGL pipeline to ensure that all commands are executed
         self.gl.glFlush()
 
