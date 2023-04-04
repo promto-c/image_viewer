@@ -2,7 +2,7 @@ import sys
 import cv2
 import numpy as np
 
-from typing import Union
+from typing import Tuple
 
 from OpenGL import GL
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -27,6 +27,10 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
         self.texture_id = None
+
+        # test draw line
+        self.line_start = None
+        self.line_end = None
 
     def sizeHint(self):
         return QtCore.QSize(self.image_width, self.image_height)
@@ -79,10 +83,37 @@ class GLWidget(QtWidgets.QOpenGLWidget):
             image_data.flatten().tolist()   # flattened image data as a list
         )
 
+    def pixel_to_gl_coords(self, pixel_coords: QtCore.QPoint) -> Tuple[float, float]:
+        # Calculate the scaled width and height of the image
+        scaled_width = self.image_width * self.zoom
+        scaled_height = self.image_height * self.zoom
+
+        # Calculate the x and y offsets to center the image
+        x_offset = (self.width() - scaled_width) / 2 + self.drag_offset[0]
+        y_offset = (self.height() - scaled_height) / 2 - self.drag_offset[1]
+
+        # Calculate the x and y coordinates in GL space
+        x = (pixel_coords.x() - x_offset) / self.zoom
+        y = (self.height() - pixel_coords.y() - y_offset) / self.zoom
+
+        # Flip the y-coordinate
+        y = self.image_height - y
+
+        return x, y
+
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
+
         if event.button() == QtCore.Qt.MiddleButton:
             self.drag_start = (event.x(), event.y())
             self.prev_drag_offset = self.drag_offset
+    
+        elif event.button() == QtCore.Qt.LeftButton:
+            self.line_start = self.pixel_to_gl_coords(event.pos())
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
+        if event.button() == QtCore.Qt.LeftButton:
+            self.line_end = self.pixel_to_gl_coords(event.pos())
+            self.update()
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
         if event.buttons() & QtCore.Qt.MiddleButton and self.drag_start:
@@ -197,6 +228,19 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         self.gl.glVertex2f(0.0, self.image_height)
         self.gl.glEnd()
 
+        # Set the line width to the calculated pixel size
+        self.gl.glLineWidth(2.0)
+
+        # Draw the line
+        if self.line_start is not None and self.line_end is not None:
+            self.gl.glColor3f(1.0, 0.0, 0.0)
+            self.gl.glBegin(GL.GL_LINES)
+            self.gl.glVertex2f(*self.line_start)
+            self.gl.glVertex2f(*self.line_end)
+            self.gl.glEnd()
+
+            self.gl.glColor3f(1.0, 1.0, 1.0)
+            
         # Flush the OpenGL pipeline to ensure that all commands are executed
         self.gl.glFlush()
 
