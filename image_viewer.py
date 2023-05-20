@@ -59,11 +59,13 @@ class GLWidget(QtWidgets.QOpenGLWidget):
         return QtCore.QSize(self.image_width, self.image_height)
 
     def set_image(self, image_data: np.ndarray) -> None:
+
+        self.image = image_data
         # Get the height and width of the image
-        height, width, _channel = image_data.shape
+        height, width, _channel = self.image.shape
         
         # Flip the image vertically using OpenCV's flip function
-        image_data = cv2.flip(image_data, 0)
+        image_data = cv2.flip(self.image, 0)
 
         # Check the data type of the image and set the corresponding pixel data type and texture format for OpenGL
         if image_data.dtype == np.uint8:
@@ -105,6 +107,8 @@ class GLWidget(QtWidgets.QOpenGLWidget):
             pixel_data_type,                # data type of the pixel data
             image_data.flatten().tolist()   # flattened image data as a list
         )
+
+        self.update()
 
     def pixel_to_gl_coords(self, pixel_coords: QtCore.QPoint) -> Tuple[float, float]:
         # Calculate the scaled width and height of the image
@@ -294,12 +298,9 @@ class MainUI(QtWidgets.QWidget):
 
     def switch_image(self):
         if np.array_equal(self.gl_widget.image, self.image):
-            self.gl_widget.image = self.image2
+            self.gl_widget.set_image(self.image2)
         else:
-            self.gl_widget.image = self.image
-
-        self.gl_widget.set_image(self.gl_widget.image)
-        self.gl_widget.update()
+            self.gl_widget.set_image(self.image)
 
 if __name__ == "__main__":
 
