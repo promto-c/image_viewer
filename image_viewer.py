@@ -28,7 +28,7 @@ class LineLayer:
         # Reset the color to white
         GL.glColor3f(1.0, 1.0, 1.0)
 
-class GLWidget(QtWidgets.QOpenGLWidget):
+class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     MIN_ZOOM = 0.1
     MAX_ZOOM = 10.0
@@ -36,7 +36,7 @@ class GLWidget(QtWidgets.QOpenGLWidget):
     ZOOM_STEP = 0.1
 
     def __init__(self, parent=None, image=None):
-        super(GLWidget, self).__init__(parent)
+        super(ImageViewerGLWidget, self).__init__(parent)
 
         self.image = image
         self.image_height, self.image_width, _c = self.image.shape
@@ -287,7 +287,7 @@ class MainUI(QtWidgets.QWidget):
         self.setup_ui()
 
     def setup_ui(self):
-        self.gl_widget = GLWidget(self, image=self.image)
+        self.gl_widget = ImageViewerGLWidget(self, image=self.image)
         self.switch_button = QtWidgets.QPushButton("Switch Image", self)
         self.switch_button.clicked.connect(self.switch_image)
 
