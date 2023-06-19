@@ -61,6 +61,32 @@ class Entity:
     def render(self):
         raise NotImplementedError("Subclasses must implement the render method.")
 
+class LayerEntity(Entity):
+    def __init__(self, transformation_matrix=np.eye(4)):
+        self.transformation_matrix = transformation_matrix
+        self.children = []
+
+    def render(self):
+        # Apply the transformation matrix to the children
+        for child in self.children:
+            child.render(self.transformation_matrix)
+
+    def add_child(self, child):
+        self.children.append(child)
+
+    def remove_child(self, child):
+        if child in self.children:
+            self.children.remove(child)
+
+    def clear_children(self):
+        self.children = []
+
+    def set_transformation_matrix(self, transformation_matrix):
+        self.transformation_matrix = transformation_matrix
+
+    def get_transformation_matrix(self):
+        return self.transformation_matrix
+    
 class LineEntity(Entity):
     def __init__(self, line_start, line_end, line_width=2.0, line_color=(1.0, 0.0, 0.0)):
         self.line_start = line_start
@@ -157,7 +183,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.line_start = None
         self.line_end = None
 
-        self.layers: List[Entity] = list()
+        self.entities: List[Entity] = list()
 
         # Private Attributes
         # ------------------
@@ -236,6 +262,10 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             pixel_data_type,                # data type of the pixel data
             image_data.flatten().tolist()   # flattened image data as a list
         )
+
+        # Create an instance of ImageEntity with the texture ID, width, and height
+        image_entity = ImageEntity(self.texture_id, self.image_width, self.image_height)
+        self.entities.append(image_entity)
 
         self.update()
 
@@ -334,15 +364,10 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         GL.glTranslatef(x_offset, y_offset, 0.0)
         GL.glScalef(self._viewer_zoom, self._viewer_zoom, 1.0)
 
-        # Create an instance of ImageEntity with the texture ID, width, and height
-        image_layer = ImageEntity(self.texture_id, self.image_width, self.image_height)
-        # Render the image layer
-        image_layer.render()
-
-        # Draw the line
-        if self.layers:
-            for line in self.layers:
-                line.render()
+        # Render the entities
+        if self.entities:
+            for entity in self.entities:
+                entity.render()
 
         # Flush the OpenGL pipeline to ensure that all commands are executed
         GL.glFlush()
@@ -372,7 +397,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             self.line_end = self.pixel_to_gl_coords(event.pos())
 
             line = LineEntity(line_start=self.line_start, line_end=self.line_end)
-            self.layers.append(line)
+            self.entities.append(line)
 
             self.update()
 
