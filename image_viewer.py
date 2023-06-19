@@ -7,37 +7,9 @@ from typing import Tuple, List
 from OpenGL import GL
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-class Layer:
-    def __init__(self, texture_id=None, width=0, height=0, line_start=None, line_end=None):
-        self.texture_id = texture_id
-        self.width = width
-        self.height = height
-        self.line_start = line_start
-        self.line_end = line_end
-
-    def render(self):
-        raise NotImplementedError("Subclasses must implement the render method.")
-
-class LineLayer(Layer):
-    def __init__(self, line_start, line_end, line_width=2.0, line_color=(1.0, 0.0, 0.0)):
-        self.line_start = line_start
-        self.line_end = line_end
-        self.line_width = line_width
-        self.line_color = line_color
-
-    def render(self):
-        # Set the line width to the calculated pixel size
-        GL.glLineWidth(self.line_width)
-
-        # Draw the line
-        GL.glColor3f(*self.line_color)
-        GL.glBegin(GL.GL_LINES)
-        GL.glVertex2f(*self.line_start)
-        GL.glVertex2f(*self.line_end)
-        GL.glEnd()
-
-        # Reset the color to white
-        GL.glColor3f(1.0, 1.0, 1.0)
+def apply_transformation(positions, transformation_matrix):
+    # Apply the transformation matrix to the vertex positions using a list comprehension
+    return [np.dot(transformation_matrix, (v[0], v[1], 0.0, 1.0))[:2] for v in positions]
 
 def create_translation_matrix(x_translation: float, y_translation: float, z_translation: float = 0.0) -> np.ndarray:
     """Creates a 3D translation matrix based on the provided translation values.
@@ -78,7 +50,39 @@ def create_rotation_matrix(angle: float = 0.0, axis: List[float] = [0.0, 0.0, 1.
                                 [0.0, 0.0, 0.0, 1.0]])
     return rotation_matrix
 
-class ImageLayer(Layer):
+class Entity:
+    def __init__(self, texture_id=None, width=0, height=0, line_start=None, line_end=None):
+        self.texture_id = texture_id
+        self.width = width
+        self.height = height
+        self.line_start = line_start
+        self.line_end = line_end
+
+    def render(self):
+        raise NotImplementedError("Subclasses must implement the render method.")
+
+class LineEntity(Entity):
+    def __init__(self, line_start, line_end, line_width=2.0, line_color=(1.0, 0.0, 0.0)):
+        self.line_start = line_start
+        self.line_end = line_end
+        self.line_width = line_width
+        self.line_color = line_color
+
+    def render(self):
+        # Set the line width to the calculated pixel size
+        GL.glLineWidth(self.line_width)
+
+        # Draw the line
+        GL.glColor3f(*self.line_color)
+        GL.glBegin(GL.GL_LINES)
+        GL.glVertex2f(*self.line_start)
+        GL.glVertex2f(*self.line_end)
+        GL.glEnd()
+
+        # Reset the color to white
+        GL.glColor3f(1.0, 1.0, 1.0)
+
+class ImageEntity(Entity):
     def __init__(self, texture_id, width, height):
         self.texture_id = texture_id
         self.width = width
@@ -92,7 +96,7 @@ class ImageLayer(Layer):
         vertex_positions = self.get_vertex_positions()
 
         # Apply the transformation matrix to the vertex positions
-        transformed_positions = self.apply_transformation(vertex_positions, transformation_matrix)
+        transformed_positions = apply_transformation(vertex_positions, transformation_matrix)
 
         # Draw the image quad
         self.draw_textured_quad(transformed_positions)
@@ -105,10 +109,6 @@ class ImageLayer(Layer):
             (self.width, self.height),
             (0.0, self.height)
         ]
-
-    def apply_transformation(self, positions, transformation_matrix):
-        # Apply the transformation matrix to the vertex positions using a list comprehension
-        return [np.dot(transformation_matrix, (v[0], v[1], 0.0, 1.0))[:2] for v in positions]
 
     def draw_textured_quad(self, positions):
         # Set the texture coordinates and vertex positions for the quad
@@ -157,7 +157,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.line_start = None
         self.line_end = None
 
-        self.layers: List[Layer] = list()
+        self.layers: List[Entity] = list()
 
         # Private Attributes
         # ------------------
@@ -334,8 +334,8 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         GL.glTranslatef(x_offset, y_offset, 0.0)
         GL.glScalef(self._viewer_zoom, self._viewer_zoom, 1.0)
 
-        # Create an instance of ImageLayer with the texture ID, width, and height
-        image_layer = ImageLayer(self.texture_id, self.image_width, self.image_height)
+        # Create an instance of ImageEntity with the texture ID, width, and height
+        image_layer = ImageEntity(self.texture_id, self.image_width, self.image_height)
         # Render the image layer
         image_layer.render()
 
@@ -371,7 +371,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         if event.button() == QtCore.Qt.LeftButton:
             self.line_end = self.pixel_to_gl_coords(event.pos())
 
-            line = LineLayer(line_start=self.line_start, line_end=self.line_end)
+            line = LineEntity(line_start=self.line_start, line_end=self.line_end)
             self.layers.append(line)
 
             self.update()
