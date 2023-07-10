@@ -154,6 +154,16 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     ZOOM_STEP = 0.1
 
+    PIXEL_DATA_MAPPING = {
+        np.dtype('uint8'): GL.GL_UNSIGNED_BYTE,
+        np.dtype('float32'): GL.GL_FLOAT,
+    }
+
+    TEXTURE_FORMAT_MAPPING = {
+        np.dtype('uint8'): GL.GL_RGB,
+        np.dtype('float32'): GL.GL_RGB32F,
+    }
+
     # Initialization and Setup
     # ------------------------
     def __init__(self, parent=None, image=None):
@@ -206,62 +216,76 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     # Private Methods
     # ---------------
+    def _update_viewer_adjustments(self):
+        #
+        pass
+
+    def _update_viewer_transformation(self):
+        # Calculate the scaled width and height of the image
+        scaled_width = self.image_width * self._viewer_zoom
+        scaled_height = self.image_height * self._viewer_zoom
+
+        # Calculate the x and y offsets to center the image
+        x_offset = (self.width() - scaled_width) / 2 + self._drag_offset[0]
+        y_offset = (self.height() - scaled_height) / 2 + self._drag_offset[1]
+
+        # Apply the translation and scaling transformations
+        GL.glTranslatef(x_offset, y_offset, 0.0)
+        GL.glScalef(self._viewer_zoom, self._viewer_zoom, 1.0)
+
+    def _render(self):
+        # Render the entities
+        if not self.entities:
+            return
+
+        # Bind the shader program
+        for entity in self.entities:
+            entity.render()
 
     # Extended Methods
     # ----------------
+    def create_image_texture(self, image_data: np.ndarray) -> int:
+
+        self.image = image_data
+        # Get the height and width of the image
+        height, width, _channel = self.image.shape
+
+        # Flip the image vertically using OpenCV's flip function
+        image_data = cv2.flip(self.image, 0)
+
+        # Create an OpenGL texture ID and bind the texture
+        texture_id = GL.glGenTextures(1)
+
+        #
+        GL.glBindTexture(GL.GL_TEXTURE_2D, texture_id)
+
+        # Set the texture minification/magnification filter
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        
+        # Use glTexImage2D to set the image texture in OpenGL
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D,                           # target
+            0,                                          # level
+            self.TEXTURE_FORMAT_MAPPING[image_data.dtype],   # internal format
+            width, height,                              # width and height of the texture
+            0,                                          # border (must be 0)
+            GL.GL_RGB,                                  # format of the pixel data
+            self.PIXEL_DATA_MAPPING[image_data.dtype],       # data type of the pixel data
+            image_data                                  # flattened image data as a list
+        )
+
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+
+        return texture_id
+
     def set_image(self, image_data: np.ndarray) -> None:
         """Set the image to be displayed.
 
         Args:
             image_data (np.ndarray): Image data as a NumPy array.
         """
-        self.image = image_data
-        # Get the height and width of the image
-        height, width, _channel = self.image.shape
-        
-        # Flip the image vertically using OpenCV's flip function
-        image_data = cv2.flip(self.image, 0)
-
-        # Check the data type of the image and set the corresponding pixel data type and texture format for OpenGL
-        if image_data.dtype == np.uint8:
-            pixel_data_type = GL.GL_UNSIGNED_BYTE
-            texture_format = GL.GL_RGB
-        elif image_data.dtype == np.float32:
-            pixel_data_type = GL.GL_FLOAT
-            texture_format = GL.GL_RGB32F
-        else:
-            # Return early if the data type is not supported
-            return
-
-        # Create an OpenGL texture ID and bind the texture
-        self.texture_id = GL.glGenTextures(1)
-
-        #
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
-
-        # Set the texture minification/magnification filter
-        GL.glTexParameterf(
-            GL.GL_TEXTURE_2D,
-            GL.GL_TEXTURE_MIN_FILTER,
-            GL.GL_NEAREST
-        )
-        GL.glTexParameterf(
-            GL.GL_TEXTURE_2D,
-            GL.GL_TEXTURE_MAG_FILTER,
-            GL.GL_NEAREST
-        )
-        
-        # Use glTexImage2D to set the image texture in OpenGL
-        GL.glTexImage2D(
-            GL.GL_TEXTURE_2D,          # target
-            0,                              # level
-            texture_format,                 # internal format
-            width, height,                  # width and height of the texture
-            0,                              # border (must be 0)
-            GL.GL_RGB,                 # format of the pixel data
-            pixel_data_type,                # data type of the pixel data
-            image_data.flatten().tolist()   # flattened image data as a list
-        )
+        self.texture_id = self.create_image_texture(image_data)
 
         # Create an instance of ImageEntity with the texture ID, width, and height
         image_entity = ImageEntity(self.texture_id, self.image_width, self.image_height)
@@ -352,22 +376,10 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         GL.glMatrixMode(GL.GL_MODELVIEW)
         GL.glLoadIdentity()
 
-        # Calculate the scaled width and height of the image
-        scaled_width = self.image_width * self._viewer_zoom
-        scaled_height = self.image_height * self._viewer_zoom
-
-        # Calculate the x and y offsets to center the image
-        x_offset = (self.width() - scaled_width) / 2 + self._drag_offset[0]
-        y_offset = (self.height() - scaled_height) / 2 + self._drag_offset[1]
-
-        # Apply the translation and scaling transformations
-        GL.glTranslatef(x_offset, y_offset, 0.0)
-        GL.glScalef(self._viewer_zoom, self._viewer_zoom, 1.0)
-
-        # Render the entities
-        if self.entities:
-            for entity in self.entities:
-                entity.render()
+        # 
+        self._update_viewer_transformation()
+        self._update_viewer_adjustments()
+        self._render()
 
         # Flush the OpenGL pipeline to ensure that all commands are executed
         GL.glFlush()
