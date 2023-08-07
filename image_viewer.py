@@ -22,7 +22,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
     MIN_ZOOM = 0.1
     MAX_ZOOM = 10.0
 
-    ZOOM_STEP = 0.1
+    ZOOM_STEP = 0.5
 
     # Initialization and Setup
     # ------------------------
@@ -34,13 +34,13 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.image_data = image_data
 
         # Set up the initial values
-        self._setup_initial_values()
+        self._setup_attributes()
         # Set up the UI
         self._setup_ui()
         # Set up signal connections
         self._setup_signal_connections()
 
-    def _setup_initial_values(self):
+    def _setup_attributes(self):
         """Set up the initial values for the widget.
         """
         # Attributes
@@ -81,7 +81,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     # Private Methods
     # ---------------
-    def _initial_shader_program(self):
+    def _initialize_shader_program(self):
         # Create vertex shader
         vertex_shader_source = '''
             #version 330 core
@@ -222,7 +222,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         # Set the clear color for the OpenGL context
         GL.glClearColor(0.1, 0.1, 0.1, 1.0)
 
-        self._initial_shader_program()
+        self._initialize_shader_program()
         self.canvas_entity = CanvasEntity()
 
         # Set the image to display
