@@ -1,151 +1,21 @@
 import sys
 import cv2
 import numpy as np
+from functools import wraps
 
 from typing import Tuple, List
 
 from OpenGL import GL
+import OpenGL.GL.shaders as shaders
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-def apply_transformation(positions, transformation_matrix):
-    # Apply the transformation matrix to the vertex positions using a list comprehension
-    return [np.dot(transformation_matrix, (v[0], v[1], 0.0, 1.0))[:2] for v in positions]
+from tranformation import apply_transformation, create_translation_matrix, create_rotation_matrix, create_scale_matrix
+from entity import Entity, CanvasEntity, LayerEntity, LineEntity
 
-def create_translation_matrix(x_translation: float, y_translation: float, z_translation: float = 0.0) -> np.ndarray:
-    """Creates a 3D translation matrix based on the provided translation values.
-
-    Args:
-        x_translation (float): The translation along the x-axis.
-        y_translation (float): The translation along the y-axis.
-        z_translation (float, optional): The translation along the z-axis. Defaults to 0.0.
-
-    Returns:
-        np.ndarray: The resulting translation matrix as a 4x4 NumPy array.
+def clamp(value: float, min_value: float, max_value: float) -> float:
+    """Helper method to clamp a value between a minimum and maximum value
     """
-    translation_matrix = np.array([[1.0, 0.0, 0.0, x_translation],
-                                   [0.0, 1.0, 0.0, y_translation],
-                                   [0.0, 0.0, 1.0, z_translation],
-                                   [0.0, 0.0, 0.0, 1.0]])
-    return translation_matrix
-
-def create_rotation_matrix(angle: float = 0.0, axis: List[float] = [0.0, 0.0, 1.0]) -> np.ndarray:
-    """Creates a 3D rotation matrix based on the provided angle and axis.
-
-    Args:
-        angle (float, optional): The rotation angle in radians. Defaults to 0.0.
-        axis (List[float], optional): The rotation axis as a 3D vector. Defaults to [0.0, 0.0, 1.0].
-
-    Returns:
-        ndarray: The resulting rotation matrix as a 4x4 NumPy array.
-    """
-    cos_theta = np.cos(angle)
-    sin_theta = np.sin(angle)
-    axis = np.asarray(axis)
-    axis = axis / np.linalg.norm(axis)
-
-    ux, uy, uz = axis
-    rotation_matrix = np.array([[cos_theta + ux ** 2 * (1 - cos_theta), ux * uy * (1 - cos_theta) - uz * sin_theta, ux * uz * (1 - cos_theta) + uy * sin_theta, 0.0],
-                                [uy * ux * (1 - cos_theta) + uz * sin_theta, cos_theta + uy ** 2 * (1 - cos_theta), uy * uz * (1 - cos_theta) - ux * sin_theta, 0.0],
-                                [uz * ux * (1 - cos_theta) - uy * sin_theta, uz * uy * (1 - cos_theta) + ux * sin_theta, cos_theta + uz ** 2 * (1 - cos_theta), 0.0],
-                                [0.0, 0.0, 0.0, 1.0]])
-    return rotation_matrix
-
-class Entity:
-    def __init__(self, texture_id=None, width=0, height=0, line_start=None, line_end=None):
-        self.texture_id = texture_id
-        self.width = width
-        self.height = height
-        self.line_start = line_start
-        self.line_end = line_end
-
-    def render(self):
-        raise NotImplementedError("Subclasses must implement the render method.")
-
-class LayerEntity(Entity):
-    def __init__(self, transformation_matrix=np.eye(4)):
-        self.transformation_matrix = transformation_matrix
-        self.children = []
-
-    def render(self):
-        # Apply the transformation matrix to the children
-        for child in self.children:
-            child.render(self.transformation_matrix)
-
-    def add_child(self, child):
-        self.children.append(child)
-
-    def remove_child(self, child):
-        if child in self.children:
-            self.children.remove(child)
-
-    def clear_children(self):
-        self.children = []
-
-    def set_transformation_matrix(self, transformation_matrix):
-        self.transformation_matrix = transformation_matrix
-
-    def get_transformation_matrix(self):
-        return self.transformation_matrix
-    
-class LineEntity(Entity):
-    def __init__(self, line_start, line_end, line_width=2.0, line_color=(1.0, 0.0, 0.0)):
-        self.line_start = line_start
-        self.line_end = line_end
-        self.line_width = line_width
-        self.line_color = line_color
-
-    def render(self):
-        # Set the line width to the calculated pixel size
-        GL.glLineWidth(self.line_width)
-
-        # Draw the line
-        GL.glColor3f(*self.line_color)
-        GL.glBegin(GL.GL_LINES)
-        GL.glVertex2f(*self.line_start)
-        GL.glVertex2f(*self.line_end)
-        GL.glEnd()
-
-        # Reset the color to white
-        GL.glColor3f(1.0, 1.0, 1.0)
-
-class ImageEntity(Entity):
-    def __init__(self, texture_id, width, height):
-        self.texture_id = texture_id
-        self.width = width
-        self.height = height
-
-    def render(self, transformation_matrix=np.eye(4)):
-        # Bind the texture to the current active texture unit
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
-
-        # Define the vertex positions
-        vertex_positions = self.get_vertex_positions()
-
-        # Apply the transformation matrix to the vertex positions
-        transformed_positions = apply_transformation(vertex_positions, transformation_matrix)
-
-        # Draw the image quad
-        self.draw_textured_quad(transformed_positions)
-
-    def get_vertex_positions(self):
-        # Define the vertex positions
-        return [
-            (0.0, 0.0),
-            (self.width, 0.0),
-            (self.width, self.height),
-            (0.0, self.height)
-        ]
-
-    def draw_textured_quad(self, positions):
-        # Set the texture coordinates and vertex positions for the quad
-        tex_coords = [(0.0, 1.0), (1.0, 1.0), (1.0, 0.0), (0.0, 0.0)]
-
-        # Draw the image quad
-        GL.glBegin(GL.GL_QUADS)
-        for tex_coord, position in zip(tex_coords, positions):
-            GL.glTexCoord2f(*tex_coord)
-            GL.glVertex2f(*position)
-        GL.glEnd()
+    return max(min(value, max_value), min_value)
 
 class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
@@ -154,24 +24,14 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     ZOOM_STEP = 0.1
 
-    PIXEL_DATA_MAPPING = {
-        np.dtype('uint8'): GL.GL_UNSIGNED_BYTE,
-        np.dtype('float32'): GL.GL_FLOAT,
-    }
-
-    TEXTURE_FORMAT_MAPPING = {
-        np.dtype('uint8'): GL.GL_RGB,
-        np.dtype('float32'): GL.GL_RGB32F,
-    }
-
     # Initialization and Setup
     # ------------------------
-    def __init__(self, parent=None, image=None):
+    def __init__(self, parent=None, image_data=None):
         # Initialize the super class
         super().__init__(parent)
 
         # Store the arguments
-        self.image = image
+        self.image_data = image_data
 
         # Set up the initial values
         self._setup_initial_values()
@@ -185,9 +45,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         """
         # Attributes
         # ------------------
-        self.image_height, self.image_width, _c = self.image.shape
-
-        self.texture_id = None
+        self.image_height, self.image_width, _c = self.image_data.shape
 
         # test draw line
         self.line_start = None
@@ -195,18 +53,25 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
         self.entities: List[Entity] = list()
 
+        self.shader_program = None
+        self.canvas_entity = None
+
+        # Set default values for lift, gamma, and gain
+        self.lift = 0.0
+        self.gamma = 1.0
+        self.gain = 1.0
+
         # Private Attributes
         # ------------------
-        self._viewer_zoom = 1.0
-
-        self._drag_offset = (0.0, 0.0)
         self._drag_start = None
-
+        self._viewer_zoom = 1.0
+        self._drag_offset = (0.0, 0.0)
+        
     def _setup_ui(self):
         """Set up the UI for the widget, including creating widgets and layouts.
         """
         # 
-        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        pass
 
     def _setup_signal_connections(self):
         """Set up signal connections between widgets and slots.
@@ -216,80 +81,102 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     # Private Methods
     # ---------------
+    def _initial_shader_program(self):
+        # Create vertex shader
+        vertex_shader_source = '''
+            #version 330 core
+            layout (location = 0) in vec2 position;
+            uniform mat4 transformation;  // Uniform variable for transformation matrix
+
+            out vec2 TexCoords;
+
+            void main() {
+                vec4 transformed_position = transformation * vec4(position, 0.0, 1.0);  // Apply the transformation
+                gl_Position = transformed_position;
+                TexCoords = position * 0.5 + 0.5; // map from [-1,1] to [0,1]
+            }
+        '''
+
+        fragment_shader_source = '''
+            #version 330 core
+            uniform sampler2D imageTexture;
+            uniform float lift;
+            uniform float gamma;
+            uniform float gain;
+            in vec2 TexCoords;
+
+            out vec4 FragColor;
+
+            void main() {
+                vec4 color = texture(imageTexture, TexCoords);
+                color.rgb = pow(color.rgb * gain + lift, vec3(1.0/gamma));
+                FragColor = color;
+            }
+        '''
+
+        # Compile and link the shader program
+        self.shader_program = shaders.compileProgram(
+            shaders.compileShader(vertex_shader_source, GL.GL_VERTEX_SHADER),
+            shaders.compileShader(fragment_shader_source, GL.GL_FRAGMENT_SHADER)
+        )
+
+        # Set uniform locations
+        self.uniform_loc_transformation = GL.glGetUniformLocation(self.shader_program, "transformation")
+        # Set uniform locations, image adjustments
+        self.uniform_loc_lift = GL.glGetUniformLocation(self.shader_program, "lift")
+        self.uniform_loc_gamma = GL.glGetUniformLocation(self.shader_program, "gamma")
+        self.uniform_loc_gain = GL.glGetUniformLocation(self.shader_program, "gain")
+
+    def _use_shader(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            with self.shader_program:
+                result = func(self, *args, **kwargs)
+            return result
+        return wrapper
+
+    @_use_shader
     def _update_viewer_adjustments(self):
-        #
-        pass
+        # Set the uniform values for image adjustments
+        GL.glUniform1f(self.uniform_loc_lift, self.lift)
+        GL.glUniform1f(self.uniform_loc_gamma, self.gamma)
+        GL.glUniform1f(self.uniform_loc_gain, self.gain)
 
+    @_use_shader
     def _update_viewer_transformation(self):
-        # Calculate the scaled width and height of the image
-        scaled_width = self.image_width * self._viewer_zoom
-        scaled_height = self.image_height * self._viewer_zoom
-
         # Calculate the x and y offsets to center the image
-        x_offset = (self.width() - scaled_width) / 2 + self._drag_offset[0]
-        y_offset = (self.height() - scaled_height) / 2 + self._drag_offset[1]
+        x_offset = (self._drag_offset[0]/self.width()*2)
+        y_offset = -(self._drag_offset[1]/self.height()*2)
 
-        # Apply the translation and scaling transformations
-        GL.glTranslatef(x_offset, y_offset, 0.0)
-        GL.glScalef(self._viewer_zoom, self._viewer_zoom, 1.0)
+        # Calculate the scaled width and height of the image
+        scaled_width = (self.image_width/self.width()) * self._viewer_zoom
+        scaled_height = (self.image_height/self.height()) * self._viewer_zoom
 
+        translation_matrix = create_translation_matrix(x_offset, y_offset)
+        scale_matrix = create_scale_matrix(scaled_width, scaled_height)
+
+        self.viewer_transformation_matrix = np.dot(translation_matrix, scale_matrix)
+
+        # Update the uniform variable in the shader
+        GL.glUniformMatrix4fv(self.uniform_loc_transformation, 1, GL.GL_FALSE, self.viewer_transformation_matrix.T.flatten())
+
+    @_use_shader
     def _render(self):
         # Render the entities
-        if not self.entities:
-            return
-
-        # Bind the shader program
+        self.canvas_entity.render()
         for entity in self.entities:
             entity.render()
 
     # Extended Methods
     # ----------------
-    def create_image_texture(self, image_data: np.ndarray) -> int:
-
-        self.image = image_data
-        # Get the height and width of the image
-        height, width, _channel = self.image.shape
-
-        # Flip the image vertically using OpenCV's flip function
-        image_data = cv2.flip(self.image, 0)
-
-        # Create an OpenGL texture ID and bind the texture
-        texture_id = GL.glGenTextures(1)
-
-        #
-        GL.glBindTexture(GL.GL_TEXTURE_2D, texture_id)
-
-        # Set the texture minification/magnification filter
-        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
-        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-        
-        # Use glTexImage2D to set the image texture in OpenGL
-        GL.glTexImage2D(
-            GL.GL_TEXTURE_2D,                           # target
-            0,                                          # level
-            self.TEXTURE_FORMAT_MAPPING[image_data.dtype],   # internal format
-            width, height,                              # width and height of the texture
-            0,                                          # border (must be 0)
-            GL.GL_RGB,                                  # format of the pixel data
-            self.PIXEL_DATA_MAPPING[image_data.dtype],       # data type of the pixel data
-            image_data                                  # flattened image data as a list
-        )
-
-        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
-
-        return texture_id
-
     def set_image(self, image_data: np.ndarray) -> None:
         """Set the image to be displayed.
 
         Args:
             image_data (np.ndarray): Image data as a NumPy array.
         """
-        self.texture_id = self.create_image_texture(image_data)
-
-        # Create an instance of ImageEntity with the texture ID, width, and height
-        image_entity = ImageEntity(self.texture_id, self.image_width, self.image_height)
-        self.entities.append(image_entity)
+        self.image_data = image_data
+        self.canvas_entity.set_image(image_data)
 
         self.update()
 
@@ -302,30 +189,20 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         Returns:
             Tuple[float, float]: OpenGL coordinates.
         """
-        # Calculate the scaled width and height of the image
-        scaled_width = self.image_width * self._viewer_zoom
-        scaled_height = self.image_height * self._viewer_zoom
+        # Normalize coordinates to [0, 1] range
+        x = pixel_coords.x() / self.width()
+        y = pixel_coords.y() / self.height()
 
-        # Calculate the x and y offsets to center the image
-        x_offset = (self.width() - scaled_width) / 2 + self._drag_offset[0]
-        y_offset = (self.height() - scaled_height) / 2 - self._drag_offset[1]
+        # Shift coordinates to [-1, 1] range
+        x = 2 * x - 1
+        y = 2 * (1 - y) - 1
 
-        # Calculate the x and y coordinates in GL space
-        x = (pixel_coords.x() - x_offset) / self._viewer_zoom
-        y = (self.height() - pixel_coords.y() - y_offset) / self._viewer_zoom
-
-        # Flip the y-coordinate
-        y = self.image_height - y
+        # Apply the transformation matrix
+        x, y = apply_transformation((x, y), np.linalg.inv(self.viewer_transformation_matrix))
 
         return x, y
 
-    @staticmethod
-    def clamp(value: float, min_value: float, max_value: float) -> float:
-        """Helper method to clamp a value between a minimum and maximum value
-        """
-        return max(min(value, max_value), min_value)
-
-    def fit_image_in_view(self):
+    def fit_in_view(self):
         """Fits the image within the widget view while maintaining the aspect ratio.
         """
         # Calculate the new zoom level while preserving the aspect ratio
@@ -339,46 +216,24 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     # OpenGL Initialization and Setup
     # -------------------------------
-    def resizeGL(self, width: int, height: int) -> None:
-        """Method to handle resizing of the widget
-
-        Args:
-            width: The new width of the widget.
-            height: The new height of the widget.
-        """
-        # Set the viewport to the new width and height of the widget
-        GL.glViewport(0, 0, width, height)
-
     def initializeGL(self):
         """Initialize the OpenGL context.
         """
         # Set the clear color for the OpenGL context
-        GL.glClearColor(0.0, 0.0, 0.0, 1.0)
+        GL.glClearColor(0.1, 0.1, 0.1, 1.0)
 
-        # Enable texture mapping
-        GL.glEnable(GL.GL_TEXTURE_2D)
+        self._initial_shader_program()
+        self.canvas_entity = CanvasEntity()
 
         # Set the image to display
-        self.set_image(self.image)
+        self.set_image(self.image_data)
 
     def paintGL(self) -> None:
         """Paint the OpenGL widget.
         """
-        # Clear the buffer
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-
-        # Set the projection matrix
-        GL.glMatrixMode(GL.GL_PROJECTION)
-        GL.glLoadIdentity()
-        GL.glOrtho(0, self.width(), self.height(), 0, -1, 1)
-
-        # Set the modelview matrix
-        GL.glMatrixMode(GL.GL_MODELVIEW)
-        GL.glLoadIdentity()
-
-        # 
         self._update_viewer_transformation()
         self._update_viewer_adjustments()
+
         self._render()
 
         # Flush the OpenGL pipeline to ensure that all commands are executed
@@ -392,11 +247,11 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         Args:
             event (QtGui.QMouseEvent): Mouse event.
         """
-        if event.button() == QtCore.Qt.MiddleButton:
+        if event.button() == QtCore.Qt.MouseButton.MiddleButton:
             self._drag_start = (event.x(), event.y())
-            self._prev__drag_offset = self._drag_offset
+            self._prev_drag_offset = self._drag_offset
     
-        elif event.button() == QtCore.Qt.LeftButton:
+        elif event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.line_start = self.pixel_to_gl_coords(event.pos())
 
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
@@ -405,7 +260,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         Args:
             event (QtGui.QMouseEvent): Mouse event.
         """
-        if event.button() == QtCore.Qt.LeftButton:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.line_end = self.pixel_to_gl_coords(event.pos())
 
             line = LineEntity(line_start=self.line_start, line_end=self.line_end)
@@ -419,10 +274,10 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         Args:
             event (QtGui.QMouseEvent): Mouse event.
         """
-        if event.buttons() & QtCore.Qt.MiddleButton and self._drag_start:
+        if event.buttons() & QtCore.Qt.MouseButton.MiddleButton and self._drag_start:
             x_offset = event.x() - self._drag_start[0]
             y_offset = event.y() - self._drag_start[1]
-            self._drag_offset = (self._prev__drag_offset[0] + x_offset, self._prev__drag_offset[1] + y_offset)
+            self._drag_offset = (self._prev_drag_offset[0] + x_offset, self._prev_drag_offset[1] + y_offset)
             self.update()
 
     def sizeHint(self) -> QtCore.QSize:
@@ -442,10 +297,36 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         # Calculate the zoom delta based on the scroll direction
         zoom_delta = self.ZOOM_STEP if event.angleDelta().y() > 0 else -self.ZOOM_STEP
 
-        # Update the zoom level and clamp it within the minimum and maximum zoom factors
-        self._viewer_zoom = self.clamp(self._viewer_zoom + zoom_delta, self.MIN_ZOOM, self.MAX_ZOOM)
+        # Store the previous zoom level for comparison
+        prev_viewer_zoom = self._viewer_zoom
 
-        # Update the widget to apply the zoom transformation
+        # Update the zoom level and clamp it within the minimum and maximum zoom factors
+        self._viewer_zoom = clamp(self._viewer_zoom + zoom_delta, self.MIN_ZOOM, self.MAX_ZOOM)
+
+        # Only adjust the drag offset if the zoom level has changed
+        if self._viewer_zoom != prev_viewer_zoom:
+            # Compute the actual change in zoom level
+            zoom_delta = self._viewer_zoom - prev_viewer_zoom
+
+            # Compute the scaled width and height of the image based on the zoom level change
+            scaled_width = (self.image_width/self.width()) * zoom_delta
+            scaled_height = (self.image_height/self.height()) * zoom_delta
+
+            # Convert the cursor position from pixel coordinates to OpenGL coordinates
+            gl_pos_x, gl_pos_y = self.pixel_to_gl_coords(event.pos())
+
+            # Scale the cursor position by the scaled width and height
+            gl_pos_x *= scaled_width
+            gl_pos_y *= scaled_height
+
+            # Compute the translation in the x and y directions
+            translate_x = - gl_pos_x * self.width()/2
+            translate_y = gl_pos_y * self.height()/2
+
+            # Update the drag offset with this translation
+            self._drag_offset = (self._drag_offset[0] + translate_x, self._drag_offset[1] + translate_y)
+
+        # Redraw the widget to apply the zoom transformation
         self.update()
 
 class MainUI(QtWidgets.QWidget):
@@ -456,18 +337,18 @@ class MainUI(QtWidgets.QWidget):
         image_path = r'example_image.1001.jpg'
         image_path2 = r'example_image.1002.jpg'
 
-        image = cv2.imread(image_path)
-        self.image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image_data = cv2.imread(image_path)
+        self.image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
         # self.image = self.image.astype(np.float32) / 255.0
 
-        image2 = cv2.imread(image_path2)
-        self.image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2RGB)
-        self.image2 = self.image2.astype(np.float32) / 255.0
+        image_data2 = cv2.imread(image_path2)
+        self.image_data2 = cv2.cvtColor(image_data2, cv2.COLOR_BGR2RGB)
+        self.image_data2 = self.image_data2.astype(np.float32) / 255.0
 
         self.setup_ui()
 
     def setup_ui(self):
-        self.gl_widget = ImageViewerGLWidget(self, image=self.image)
+        self.gl_widget = ImageViewerGLWidget(self, image_data=self.image_data)
         self.switch_button = QtWidgets.QPushButton("Switch Image", self)
         self.switch_button.clicked.connect(self.switch_image)
 
@@ -477,10 +358,10 @@ class MainUI(QtWidgets.QWidget):
         self.setLayout(self.main_layout)
 
     def switch_image(self):
-        if np.array_equal(self.gl_widget.image, self.image):
-            self.gl_widget.set_image(self.image2)
+        if np.array_equal(self.gl_widget.image_data, self.image_data):
+            self.gl_widget.set_image(self.image_data2)
         else:
-            self.gl_widget.set_image(self.image)
+            self.gl_widget.set_image(self.image_data)
 
 if __name__ == "__main__":
 
