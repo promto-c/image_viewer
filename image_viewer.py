@@ -167,6 +167,42 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         for entity in self.entities:
             entity.render()
 
+    def _handle_viewer_zoom(self, zoom_delta: float, pivot_coords: QtCore.QPoint) -> None:
+        """Handle the viewer zoom based on the zoom delta and wheel event
+
+        Args:
+            zoom_delta(float): The zoom delta.
+            pivot_coords (QtCore.QPoint): The pivot coordinates for the zoom.
+        """
+        # Store the previous zoom level for comparison
+        prev_viewer_zoom = self._viewer_zoom
+
+        # Update the zoom level and clamp it within the minimum and maximum zoom factors
+        self._viewer_zoom = clamp(self._viewer_zoom + zoom_delta, self.MIN_ZOOM, self.MAX_ZOOM)
+
+        # Only adjust the drag offset if the zoom level has changed
+        if self._viewer_zoom != prev_viewer_zoom:
+            # Compute the actual change in zoom level
+            zoom_delta = self._viewer_zoom - prev_viewer_zoom
+
+            # Compute the scaled width and height of the image based on the zoom level change
+            scaled_width = (self.image_width/self.width()) * zoom_delta
+            scaled_height = (self.image_height/self.height()) * zoom_delta
+
+            # Convert the cursor position from pixel coordinates to OpenGL coordinates
+            gl_pos_x, gl_pos_y = self.pixel_to_gl_coords(pivot_coords)
+
+            # Scale the cursor position by the scaled width and height
+            gl_pos_x *= scaled_width
+            gl_pos_y *= scaled_height
+
+            # Compute the translation in the x and y directions
+            translate_x = - gl_pos_x * self.width() / 2
+            translate_y = gl_pos_y * self.height() / 2
+
+            # Update the drag offset with this translation
+            self._drag_offset = (self._drag_offset[0] + translate_x, self._drag_offset[1] + translate_y)
+
     # Extended Methods
     # ----------------
     def set_image(self, image_data: np.ndarray) -> None:
@@ -297,34 +333,8 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         # Calculate the zoom delta based on the scroll direction
         zoom_delta = self.ZOOM_STEP if event.angleDelta().y() > 0 else -self.ZOOM_STEP
 
-        # Store the previous zoom level for comparison
-        prev_viewer_zoom = self._viewer_zoom
-
-        # Update the zoom level and clamp it within the minimum and maximum zoom factors
-        self._viewer_zoom = clamp(self._viewer_zoom + zoom_delta, self.MIN_ZOOM, self.MAX_ZOOM)
-
-        # Only adjust the drag offset if the zoom level has changed
-        if self._viewer_zoom != prev_viewer_zoom:
-            # Compute the actual change in zoom level
-            zoom_delta = self._viewer_zoom - prev_viewer_zoom
-
-            # Compute the scaled width and height of the image based on the zoom level change
-            scaled_width = (self.image_width/self.width()) * zoom_delta
-            scaled_height = (self.image_height/self.height()) * zoom_delta
-
-            # Convert the cursor position from pixel coordinates to OpenGL coordinates
-            gl_pos_x, gl_pos_y = self.pixel_to_gl_coords(event.pos())
-
-            # Scale the cursor position by the scaled width and height
-            gl_pos_x *= scaled_width
-            gl_pos_y *= scaled_height
-
-            # Compute the translation in the x and y directions
-            translate_x = - gl_pos_x * self.width()/2
-            translate_y = gl_pos_y * self.height()/2
-
-            # Update the drag offset with this translation
-            self._drag_offset = (self._drag_offset[0] + translate_x, self._drag_offset[1] + translate_y)
+        # Handle the viewer zoom
+        self._handle_viewer_zoom(zoom_delta, event.pos())
 
         # Redraw the widget to apply the zoom transformation
         self.update()
