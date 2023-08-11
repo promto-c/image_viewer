@@ -6,11 +6,11 @@ from functools import wraps
 from typing import Tuple, List
 
 from OpenGL import GL
-import OpenGL.GL.shaders as shaders
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from tranformation import apply_transformation, create_translation_matrix, create_rotation_matrix, create_scale_matrix
 from entity import Entity, CanvasEntity, LayerEntity, LineEntity
+from shaders.viewer_shader import ViewerShaderProgram
 
 def clamp(value: float, min_value: float, max_value: float) -> float:
     """Helper method to clamp a value between a minimum and maximum value
@@ -81,52 +81,6 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     # Private Methods
     # ---------------
-    def _initialize_shader_program(self):
-        # Create vertex shader
-        vertex_shader_source = '''
-            #version 330 core
-            layout (location = 0) in vec2 position;
-            uniform mat4 transformation;  // Uniform variable for transformation matrix
-
-            out vec2 TexCoords;
-
-            void main() {
-                vec4 transformed_position = transformation * vec4(position, 0.0, 1.0);  // Apply the transformation
-                gl_Position = transformed_position;
-                TexCoords = position * 0.5 + 0.5; // map from [-1,1] to [0,1]
-            }
-        '''
-
-        fragment_shader_source = '''
-            #version 330 core
-            uniform sampler2D imageTexture;
-            uniform float lift;
-            uniform float gamma;
-            uniform float gain;
-            in vec2 TexCoords;
-
-            out vec4 FragColor;
-
-            void main() {
-                vec4 color = texture(imageTexture, TexCoords);
-                color.rgb = pow(color.rgb * gain + lift, vec3(1.0/gamma));
-                FragColor = color;
-            }
-        '''
-
-        # Compile and link the shader program
-        self.shader_program = shaders.compileProgram(
-            shaders.compileShader(vertex_shader_source, GL.GL_VERTEX_SHADER),
-            shaders.compileShader(fragment_shader_source, GL.GL_FRAGMENT_SHADER)
-        )
-
-        # Set uniform locations
-        self.uniform_loc_transformation = GL.glGetUniformLocation(self.shader_program, "transformation")
-        # Set uniform locations, image adjustments
-        self.uniform_loc_lift = GL.glGetUniformLocation(self.shader_program, "lift")
-        self.uniform_loc_gamma = GL.glGetUniformLocation(self.shader_program, "gamma")
-        self.uniform_loc_gain = GL.glGetUniformLocation(self.shader_program, "gain")
-
     def _use_shader(func):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -138,9 +92,9 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
     @_use_shader
     def _update_viewer_adjustments(self):
         # Set the uniform values for image adjustments
-        GL.glUniform1f(self.uniform_loc_lift, self.lift)
-        GL.glUniform1f(self.uniform_loc_gamma, self.gamma)
-        GL.glUniform1f(self.uniform_loc_gain, self.gain)
+        self.shader_program.set_lift(self.lift)
+        self.shader_program.set_gamma(self.gamma)
+        self.shader_program.set_gain(self.gain)
 
     @_use_shader
     def _update_viewer_transformation(self):
@@ -158,7 +112,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.viewer_transformation_matrix = np.dot(translation_matrix, scale_matrix)
 
         # Update the uniform variable in the shader
-        GL.glUniformMatrix4fv(self.uniform_loc_transformation, 1, GL.GL_FALSE, self.viewer_transformation_matrix.T.flatten())
+        self.shader_program.set_tranformation(self.viewer_transformation_matrix)
 
     @_use_shader
     def _render(self):
@@ -258,7 +212,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         # Set the clear color for the OpenGL context
         GL.glClearColor(0.1, 0.1, 0.1, 1.0)
 
-        self._initialize_shader_program()
+        self.shader_program = ViewerShaderProgram(self)
         self.canvas_entity = CanvasEntity()
 
         # Set the image to display
