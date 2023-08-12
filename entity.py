@@ -58,7 +58,7 @@ class Texture2D:
             0,                                              # border (must be 0)
             GL.GL_RGB,                                      # format of the pixel data
             self.PIXEL_DATA_MAPPING[image_data.dtype],      # data type of the pixel data
-            np.flipud(image_data)                           # flattened image data as a list
+            image_data                                      # image data
         )
 
     def bind(self):
