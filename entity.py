@@ -8,23 +8,24 @@ class Texture2D:
 
     PIXEL_DATA_MAPPING = {
         np.dtype('uint8'): GL.GL_UNSIGNED_BYTE,
+        np.dtype('float16'): GL.GL_FLOAT,
         np.dtype('float32'): GL.GL_FLOAT,
     }
 
     TEXTURE_FORMAT_MAPPING = {
         np.dtype('uint8'): GL.GL_RGB,
+        np.dtype('float16'): GL.GL_RGB16F,
         np.dtype('float32'): GL.GL_RGB32F,
     }
 
     def __init__(self, image_data: np.ndarray):
-        self.image_data = image_data
         # Get the height and width of the image
         self.height, self.width, _channel = image_data.shape
 
         # Create an OpenGL texture ID and bind the texture
         self.id = GL.glGenTextures(1)
 
-        self._set_image()
+        self.set_image(image_data)
 
     def __enter__(self):
         self.bind()
@@ -43,21 +44,21 @@ class Texture2D:
         return wrapper
 
     @_use_texture
-    def _set_image(self):
+    def set_image(self, image_data: np.ndarray):
         # Set the texture minification/magnification filter
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         
         # Use glTexImage2D to set the image texture in OpenGL
         GL.glTexImage2D(
-            GL.GL_TEXTURE_2D,                           # target
-            0,                                          # level
-            self.TEXTURE_FORMAT_MAPPING[self.image_data.dtype],   # internal format
-            self.width, self.height,                              # width and height of the texture
-            0,                                          # border (must be 0)
-            GL.GL_RGB,                                  # format of the pixel data
-            self.PIXEL_DATA_MAPPING[self.image_data.dtype],       # data type of the pixel data
-            np.flipud(self.image_data)                                  # flattened image data as a list
+            GL.GL_TEXTURE_2D,                               # target
+            0,                                              # level
+            self.TEXTURE_FORMAT_MAPPING[image_data.dtype],  # internal format
+            self.width, self.height,                        # width and height of the texture
+            0,                                              # border (must be 0)
+            GL.GL_RGB,                                      # format of the pixel data
+            self.PIXEL_DATA_MAPPING[image_data.dtype],      # data type of the pixel data
+            np.flipud(image_data)                           # flattened image data as a list
         )
 
     def bind(self):
@@ -157,11 +158,13 @@ class CanvasEntity(Entity):
         super().__init__()
         self.rectangle_mesh = RectangleMesh()
         self.vao = self.rectangle_mesh.vao
+        self.texture = None
 
     def set_image(self, image_data: np.ndarray = None):
-        self.image_data = image_data
-        # 
-        self.texture = Texture2D(image_data) if self.image_data is not None else None
+        if self.texture is None:
+            self.texture = Texture2D(image_data) if image_data is not None else None
+        else:
+            self.texture.set_image(image_data)
 
     def render(self):
         if self.texture is None:

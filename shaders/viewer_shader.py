@@ -27,6 +27,7 @@ class ViewerShaderProgram(QtGui.QOpenGLShaderProgram):
 
     def __enter__(self):
         self.bind()
+        return self
 
     def __exit__( self, typ, val, tb ):
         self.release()
