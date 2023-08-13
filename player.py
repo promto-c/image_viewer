@@ -1,7 +1,7 @@
 import sys
 import os
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets, uic
 import numpy as np
 import OpenEXR
 import Imath
@@ -53,10 +53,30 @@ def read_exr(image_path: str) -> np.ndarray:
 
     return image_data
 
-class Player(QtWidgets.QWidget):
+MAIN_PATH = os.path.dirname(__file__)
+
+class PlayerWidget(QtWidgets.QWidget):
+
+    lift_spin_box: QtWidgets.QDoubleSpinBox
+    gamma_spin_box: QtWidgets.QDoubleSpinBox
+    gain_spin_box: QtWidgets.QDoubleSpinBox
+
+    center_layout: QtWidgets.QVBoxLayout
+
+    current_frame_spin_box: QtWidgets.QSpinBox
+    play_backward_button: QtWidgets.QPushButton
+    stop_button: QtWidgets.QPushButton
+    play_forward_button: QtWidgets.QPushButton
+
+    start_frame_spin_box: QtWidgets.QSpinBox
+    frame_slider: QtWidgets.QSlider
+    end_frame_spin_box: QtWidgets.QSpinBox
 
     def __init__(self, image_path: str, parent=None):
         super().__init__(parent)
+        
+        uic.loadUi(os.path.join(MAIN_PATH, 'player_widget.ui'), self)
+
 
         self.path_sequence = PathSequence(image_path)
 
@@ -79,27 +99,57 @@ class Player(QtWidgets.QWidget):
         self.play_forward_timer = QtCore.QTimer(self)
         self.play_forward_timer.setSingleShot(False)
         
-        self.viewer = ImageViewerGLWidget(self, image_data=self.image_data)        
+        self.viewer = ImageViewerGLWidget(self, image_data=self.image_data)
+        # self.viewer.fit_in_view()
 
-        self.main_layout = QtWidgets.QVBoxLayout()
-        self.main_layout.addWidget(self.viewer)
+        self.frame_slider.setMaximum(self.last_frame)
 
-        self.play_button = QtWidgets.QPushButton("play", self)
-        self.stop_button = QtWidgets.QPushButton("stop", self)
-
-        self.main_layout.addWidget(self.play_button)
-        self.main_layout.addWidget(self.stop_button)
-
-        self.setLayout(self.main_layout)
+        self.center_layout.addWidget(self.viewer)
 
     def setup_signal(self):
         
         self.play_forward_timer.timeout.connect(self.play_forward)
 
-        self.play_button.clicked.connect(self.play_forward_timer.start)
+        self.play_forward_button.clicked.connect(self.play_forward_timer.start)
         self.stop_button.clicked.connect(self.play_forward_timer.stop)
+
+        self.lift_spin_box.valueChanged.connect(self.set_lift)
+        self.gamma_spin_box.valueChanged.connect(self.set_gamma)
+        self.gain_spin_box.valueChanged.connect(self.set_gain)
+
+        self.frame_slider.valueChanged.connect(self.set_frame)
         
         # self.play_forward_timer.start(8)
+    def set_frame(self, frame_number: int):
+        self.frame = frame_number
+
+        image_path = self.path_sequence.get_frame_path(self.frame)
+        
+        if image_path in self.image_dict:
+            
+            image_data = self.image_dict[image_path]
+        else:
+            t0 = time.time()
+            image_data = self.read_image(image_path)
+            t1 = time.time()
+            # print(t1-t0)
+
+            self.image_dict[image_path] = image_data
+
+        self.viewer.set_image(image_data)
+
+
+    def set_lift(self, lift_value: float):
+        self.viewer.lift = lift_value
+        self.viewer.update()
+
+    def set_gamma(self, gamma_value: float):
+        self.viewer.gamma = gamma_value
+        self.viewer.update()
+
+    def set_gain(self, gain_value: float):
+        self.viewer.gain = gain_value
+        self.viewer.update()
 
     def read_image(self, file_path: str()):
         image_data = read_exr(file_path)
@@ -111,6 +161,8 @@ class Player(QtWidgets.QWidget):
             self.frame = self.first_frame
         
         self.frame += 1
+        self.current_frame_spin_box.setValue(self.frame)
+        self.frame_slider.setValue(self.frame)
 
         image_path = self.path_sequence.get_frame_path(self.frame)
         
@@ -132,6 +184,6 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     image_path = 'example_exr_plates\C0653.####.exr'
     
-    win = Player(image_path)
-    win.show()
+    player_widget = PlayerWidget(image_path)
+    player_widget.show()
     sys.exit( app.exec() )
