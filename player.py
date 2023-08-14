@@ -1,59 +1,12 @@
 import sys
-import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
-import numpy as np
-import OpenEXR
-import Imath
 
 from viewer import ImageViewerGLWidget
-from utils.path_utils import PathSequence
+from utils.image_utils import read_exr
+from utils.path_utils import PathSequence, PROJECT_ROOT
 
-def read_exr(image_path: str) -> np.ndarray:
-    """Read an EXR image from file and return it as a NumPy array.
-
-    Args:
-        image_path (str): The path to the EXR image file.
-
-    Returns:
-        np.ndarray: The image data as a NumPy array.
-
-    """
-    # Open the EXR file for reading
-    exr_file = OpenEXR.InputFile(image_path)
-
-    # Get the image header
-    header = exr_file.header()
-
-    # Get the data window (bounding box) of the image
-    data_window = header['dataWindow']
-
-    # Get the channels present in the image
-    channels = header['channels']
-
-    # Calculate the width and height of the image
-    width = data_window.max.x - data_window.min.x + 1
-    height = data_window.max.y - data_window.min.y + 1
-
-    # Determine the channel keys
-    channel_keys = 'RGB' if len(channels.keys()) == 3 else channels.keys()
-
-    # Read all channels at once
-    channel_data = exr_file.channels(channel_keys, Imath.PixelType(Imath.PixelType.FLOAT))
-
-    # Create an empty NumPy array to store the image data
-    image_data = np.zeros((height, width, len(channel_keys)), dtype=np.float32)
-
-    # Populate the image data array
-    for i, data in enumerate(channel_data):
-        # Retrieve the pixel values for the channel
-        pixels = np.frombuffer(data, dtype=np.float32)
-        # Reshape the pixel values to match the image dimensions and store them in the image data array
-        image_data[:, :, i] = pixels.reshape((height, width))
-
-    return image_data
-
-MAIN_PATH = os.path.dirname(__file__)
+PLAYER_WIDGET_UI = PROJECT_ROOT / 'ui/player_widget.ui'
 
 class PlayerWidget(QtWidgets.QWidget):
 
@@ -72,72 +25,79 @@ class PlayerWidget(QtWidgets.QWidget):
     frame_slider: QtWidgets.QSlider
     end_frame_spin_box: QtWidgets.QSpinBox
 
-    def __init__(self, image_path: str, parent=None):
+    def __init__(self, input_path: str, parent=None):
         super().__init__(parent)
-        
-        uic.loadUi(os.path.join(MAIN_PATH, 'player_widget.ui'), self)
+        uic.loadUi(PLAYER_WIDGET_UI, self)
 
+        self.input_path = input_path
 
-        self.path_sequence = PathSequence(image_path)
+        # Set up the initial values
+        self._setup_attributes()
+        # Set up the UI
+        self._setup_ui()
+        # Set up signal connections
+        self._setup_signal_connections()
 
+    def _setup_attributes(self):
+        self.path_sequence = PathSequence(self.input_path)
         self.first_frame, self.last_frame = self.path_sequence.get_frame_range()
-        self.frame_count = self.path_sequence.get_frame_count_from_range()
-        self.frame = self.first_frame
-        # self.num_padding = path_sequence.padding
-        
-        image_path = self.path_sequence.get_frame_path(self.frame)
-        
+        self.current_frame = self.first_frame
+        self.path_to_image_dict = dict()
 
-        self.image_data = self.read_image(image_path)
-        self.image_dict = dict()
-        self.image_dict[image_path] = self.image_data
-
-        self.setup_ui()
-        self.setup_signal()
-
-    def setup_ui(self):
+    def _setup_ui(self):
         self.play_forward_timer = QtCore.QTimer(self)
-        self.play_forward_timer.setSingleShot(False)
-        
-        self.viewer = ImageViewerGLWidget(self, image_data=self.image_data)
-        # self.viewer.fit_in_view()
+        self.play_backward_timer = QtCore.QTimer(self)
+
+        image_data = self.get_image_data(self.current_frame)
+        self.viewer = ImageViewerGLWidget(self, image_data=image_data)
 
         self.frame_slider.setMaximum(self.last_frame)
 
         self.center_layout.addWidget(self.viewer)
 
-    def setup_signal(self):
+    def _setup_signal_connections(self):
         
-        self.play_forward_timer.timeout.connect(self.play_forward)
+        self.play_forward_timer.timeout.connect(self.next_frame)
+        self.play_backward_timer.timeout.connect(self.previous_frame)
 
-        self.play_forward_button.clicked.connect(self.play_forward_timer.start)
-        self.stop_button.clicked.connect(self.play_forward_timer.stop)
+        self.play_forward_button.clicked.connect(self.play_forward)
+        self.play_backward_button.clicked.connect(self.play_backward)
+        self.stop_button.clicked.connect(self.stop_playback)
 
         self.lift_spin_box.valueChanged.connect(self.set_lift)
         self.gamma_spin_box.valueChanged.connect(self.set_gamma)
         self.gain_spin_box.valueChanged.connect(self.set_gain)
 
+        self.current_frame_spin_box.valueChanged.connect(self.set_frame)
         self.frame_slider.valueChanged.connect(self.set_frame)
         
-        # self.play_forward_timer.start(8)
+    def stop_playback(self):
+        self.play_forward_timer.stop()
+        self.play_backward_timer.stop()
+
+    def play_forward(self):
+        self.stop_playback()
+        self.play_forward_timer.start()
+
+    def play_backward(self):
+        self.stop_playback()
+        self.play_backward_timer.start()
+
     def set_frame(self, frame_number: int):
-        self.frame = frame_number
+        self.current_frame = frame_number
+        self.current_frame_spin_box.setValue(self.current_frame)
+        self.frame_slider.setValue(self.current_frame)
 
-        image_path = self.path_sequence.get_frame_path(self.frame)
-        
-        if image_path in self.image_dict:
-            
-            image_data = self.image_dict[image_path]
-        else:
-            t0 = time.time()
-            image_data = self.read_image(image_path)
-            t1 = time.time()
-            # print(t1-t0)
-
-            self.image_dict[image_path] = image_data
-
+        image_data = self.get_image_data(self.current_frame)
         self.viewer.set_image(image_data)
 
+    def get_image_data(self, frame: int):
+        image_path = self.path_sequence.get_frame_path(frame)
+        
+        if image_path not in self.path_to_image_dict:
+            self.path_to_image_dict[image_path] = self.read_image(image_path)
+
+        return self.path_to_image_dict[image_path]
 
     def set_lift(self, lift_value: float):
         self.viewer.lift = lift_value
@@ -156,34 +116,26 @@ class PlayerWidget(QtWidgets.QWidget):
 
         return image_data
 
-    def play_forward(self):
-        if self.frame == self.last_frame:
-            self.frame = self.first_frame
-        
-        self.frame += 1
-        self.current_frame_spin_box.setValue(self.frame)
-        self.frame_slider.setValue(self.frame)
-
-        image_path = self.path_sequence.get_frame_path(self.frame)
-        
-        if image_path in self.image_dict:
-            
-            image_data = self.image_dict[image_path]
+    def next_frame(self, increment: int = 1):
+        if self.current_frame == self.last_frame:
+            next_frame = self.first_frame
         else:
-            t0 = time.time()
-            image_data = self.read_image(image_path)
-            t1 = time.time()
-            # print(t1-t0)
+            next_frame = self.current_frame + increment
 
-            self.image_dict[image_path] = image_data
+        self.set_frame(next_frame)
 
-        self.viewer.set_image(image_data)
-        
+    def previous_frame(self, increment: int = 1):
+        if self.current_frame == self.first_frame:
+            next_frame = self.last_frame
+        else:
+            next_frame = self.current_frame - increment
+
+        self.set_frame(next_frame)
+
 if __name__ == "__main__":
-    import time
     app = QtWidgets.QApplication(sys.argv)
     image_path = 'example_exr_plates\C0653.####.exr'
     
     player_widget = PlayerWidget(image_path)
     player_widget.show()
-    sys.exit( app.exec() )
+    sys.exit(app.exec())

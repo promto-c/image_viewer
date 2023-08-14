@@ -1,6 +1,7 @@
-import re
 import glob
-import os
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent.parent
 
 class PathSequence:
     def __init__(self, path: str):

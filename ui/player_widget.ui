@@ -80,7 +80,7 @@
                <double>1.000000000000000</double>
               </property>
               <property name="singleStep">
-               <double>0.010000000000000</double>
+               <double>0.100000000000000</double>
               </property>
              </widget>
             </item>
@@ -97,7 +97,7 @@
             <item>
              <widget class="QDoubleSpinBox" name="gain_spin_box">
               <property name="singleStep">
-               <double>0.010000000000000</double>
+               <double>0.100000000000000</double>
               </property>
               <property name="value">
                <double>1.000000000000000</double>
