@@ -8,13 +8,34 @@ from utils.path_utils import PathSequence, PROJECT_ROOT
 
 PLAYER_WIDGET_UI = PROJECT_ROOT / 'ui/player_widget.ui'
 
+def fps_to_interval_msc(fps) -> int:
+    """Converts frames per second to time interval in milliseconds.
+
+    Args:
+        fps (float): Frames per second.
+
+    Returns:
+        float: Time interval between frames in milliseconds.
+
+    Raises:
+        ValueError: If FPS is not a positive value.
+    """
+    if fps <= 0:
+        raise ValueError("FPS must be a positive value.")
+    
+    return int(1000 / fps)
+
 class PlayerWidget(QtWidgets.QWidget):
+
+    UI = PLAYER_WIDGET_UI
 
     lift_spin_box: QtWidgets.QDoubleSpinBox
     gamma_spin_box: QtWidgets.QDoubleSpinBox
     gain_spin_box: QtWidgets.QDoubleSpinBox
 
     center_layout: QtWidgets.QVBoxLayout
+
+    playback_speed_combo_box: QtWidgets.QComboBox
 
     current_frame_spin_box: QtWidgets.QSpinBox
     play_backward_button: QtWidgets.QPushButton
@@ -27,7 +48,7 @@ class PlayerWidget(QtWidgets.QWidget):
 
     def __init__(self, input_path: str, parent=None):
         super().__init__(parent)
-        uic.loadUi(PLAYER_WIDGET_UI, self)
+        uic.loadUi(self.UI, self)
 
         self.input_path = input_path
 
@@ -48,14 +69,21 @@ class PlayerWidget(QtWidgets.QWidget):
         self.play_forward_timer = QtCore.QTimer(self)
         self.play_backward_timer = QtCore.QTimer(self)
 
+        self.set_playback_speed()
+
         image_data = self.get_image_data(self.current_frame)
         self.viewer = ImageViewerGLWidget(self, image_data=image_data)
 
         self.frame_slider.setMaximum(self.last_frame)
 
+        self.start_frame_spin_box.setValue(self.first_frame)
+        self.end_frame_spin_box.setValue(self.last_frame)
+
         self.center_layout.addWidget(self.viewer)
 
     def _setup_signal_connections(self):
+
+        self.playback_speed_combo_box.currentTextChanged.connect(self.set_playback_speed)
         
         self.play_forward_timer.timeout.connect(self.next_frame)
         self.play_backward_timer.timeout.connect(self.previous_frame)
@@ -70,6 +98,14 @@ class PlayerWidget(QtWidgets.QWidget):
 
         self.current_frame_spin_box.valueChanged.connect(self.set_frame)
         self.frame_slider.valueChanged.connect(self.set_frame)
+
+    def set_playback_speed(self, playback_fps: float = 48.0):
+        playback_fps = float(playback_fps)
+
+        interval = fps_to_interval_msc(playback_fps)
+
+        self.play_forward_timer.setInterval(interval)
+        self.play_backward_timer.setInterval(interval)
         
     def stop_playback(self):
         self.play_forward_timer.stop()

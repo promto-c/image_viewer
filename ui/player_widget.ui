@@ -32,6 +32,18 @@
    <item>
     <widget class="QWidget" name="widget" native="true">
      <layout class="QVBoxLayout" name="verticalLayout_2">
+      <property name="leftMargin">
+       <number>6</number>
+      </property>
+      <property name="topMargin">
+       <number>6</number>
+      </property>
+      <property name="rightMargin">
+       <number>6</number>
+      </property>
+      <property name="bottomMargin">
+       <number>6</number>
+      </property>
       <item>
        <widget class="QWidget" name="widget_2" native="true">
         <property name="sizePolicy">
@@ -136,7 +148,10 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
-        <layout class="QHBoxLayout" name="buttom_layout">
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <property name="spacing">
+          <number>6</number>
+         </property>
          <property name="leftMargin">
           <number>0</number>
          </property>
@@ -168,13 +183,6 @@
              <number>0</number>
             </property>
             <item>
-             <widget class="QSpinBox" name="current_frame_spin_box">
-              <property name="maximum">
-               <number>99999</number>
-              </property>
-             </widget>
-            </item>
-            <item>
              <widget class="QPushButton" name="play_backward_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
@@ -189,7 +197,7 @@
                </size>
               </property>
               <property name="text">
-               <string>&lt;</string>
+               <string>◁</string>
               </property>
              </widget>
             </item>
@@ -227,8 +235,46 @@
                </size>
               </property>
               <property name="text">
-               <string>&gt;</string>
+               <string>▷</string>
               </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="widget_4" native="true">
+           <layout class="QHBoxLayout" name="horizontalLayout_6">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QComboBox" name="playback_speed_combo_box">
+              <property name="editable">
+               <bool>true</bool>
+              </property>
+              <item>
+               <property name="text">
+                <string>24</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>60</string>
+               </property>
+              </item>
              </widget>
             </item>
            </layout>
@@ -253,7 +299,11 @@
              <number>0</number>
             </property>
             <item>
-             <widget class="QSpinBox" name="start_frame_spin_box"/>
+             <widget class="QSpinBox" name="start_frame_spin_box">
+              <property name="maximum">
+               <number>65535</number>
+              </property>
+             </widget>
             </item>
             <item>
              <widget class="QSlider" name="frame_slider">
@@ -263,7 +313,39 @@
              </widget>
             </item>
             <item>
-             <widget class="QSpinBox" name="end_frame_spin_box"/>
+             <widget class="QSpinBox" name="end_frame_spin_box">
+              <property name="maximum">
+               <number>65535</number>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="widget_8" native="true">
+           <layout class="QHBoxLayout" name="horizontalLayout_4">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QSpinBox" name="current_frame_spin_box">
+              <property name="maximum">
+               <number>65535</number>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
