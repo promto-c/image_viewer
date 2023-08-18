@@ -230,6 +230,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
         # Set the image to display
         self.set_image(self.image_data)
+        self.fit_in_view()
 
     def paintGL(self) -> None:
         """Paint the OpenGL widget.
