@@ -1,4 +1,5 @@
 import sys
+from typing import Callable
 
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
@@ -81,6 +82,10 @@ class PlayerWidget(QtWidgets.QWidget):
 
         self.center_layout.addWidget(self.viewer)
 
+        # Set the focus policy to accept focus, and set the initial focus
+        self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+        self.setFocus()
+
     def _setup_signal_connections(self):
 
         self.playback_speed_combo_box.currentTextChanged.connect(self.set_playback_speed)
@@ -98,6 +103,12 @@ class PlayerWidget(QtWidgets.QWidget):
 
         self.current_frame_spin_box.valueChanged.connect(self.set_frame)
         self.frame_slider.valueChanged.connect(self.set_frame)
+
+    def key_bind(self, key_sequence: str, function: Callable):
+        # Create a shortcut
+        shortcut = QtWidgets.QShortcut(QtGui.QKeySequence(key_sequence), self)
+        # Connect the activated signal of the shortcut to the slot
+        shortcut.activated.connect(function)
 
     def set_playback_speed(self, playback_fps: float = 48.0):
         playback_fps = float(playback_fps)
