@@ -1,4 +1,5 @@
 import sys
+import os
 from typing import Callable
 from functools import lru_cache
 
@@ -29,9 +30,26 @@ def fps_to_interval_msc(fps) -> int:
     
     return int(1000 / fps)
 
+class ImageLoader(QtCore.QRunnable):
+    def __init__(self, widget, frame, file_path):
+        super().__init__()
+        self.widget = widget
+        self.frame = frame
+        self.file_path = file_path
+
+    def run(self):
+        image_data = self.widget.read_image(self.file_path)
+        try:
+            self.widget.image_loaded_signal.emit(self.frame, image_data)
+        except RuntimeError as e:
+            pass
+
 class PlayerWidget(QtWidgets.QWidget):
 
     UI = PLAYER_WIDGET_UI
+
+    prefetch_button: QtWidgets.QPushButton
+    prefetch_progress_bar: QtWidgets.QProgressBar
 
     lift_spin_box: QtWidgets.QDoubleSpinBox
     gamma_spin_box: QtWidgets.QDoubleSpinBox
@@ -50,6 +68,8 @@ class PlayerWidget(QtWidgets.QWidget):
     frame_slider: QtWidgets.QSlider
     end_frame_spin_box: QtWidgets.QSpinBox
 
+    image_loaded_signal = QtCore.pyqtSignal(int, object)
+    
     def __init__(self, input_path: str, parent=None):
         super().__init__(parent)
         uic.loadUi(self.UI, self)
@@ -66,11 +86,21 @@ class PlayerWidget(QtWidgets.QWidget):
     def _setup_attributes(self):
         self.path_sequence = PathSequence(self.input_path)
         self.first_frame, self.last_frame = self.path_sequence.get_frame_range()
+
         self.current_frame = self.first_frame
 
-    def _setup_ui(self):
+        self.thread_pool = QtCore.QThreadPool()
+
+        num_cores = os.cpu_count()
+        if num_cores is not None and num_cores > 1:
+            self.thread_pool.setMaxThreadCount(num_cores - 1)
+        else:
+            self.thread_pool.setMaxThreadCount(1)
+
         self.play_forward_timer = QtCore.QTimer(self)
         self.play_backward_timer = QtCore.QTimer(self)
+
+    def _setup_ui(self):
 
         self.set_playback_speed()
 
@@ -88,7 +118,13 @@ class PlayerWidget(QtWidgets.QWidget):
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self.setFocus()
 
+        self.prefetch_progress_bar.setMaximum(0)
+        self.prefetch_progress_bar.setMinimum(0)
+        self.prefetch_progress_bar.setValue(0)
+
     def _setup_signal_connections(self):
+
+        self.prefetch_button.clicked.connect(self.prefetch)
 
         self.playback_speed_combo_box.currentTextChanged.connect(self.set_playback_speed)
         
@@ -106,9 +142,34 @@ class PlayerWidget(QtWidgets.QWidget):
         self.current_frame_spin_box.valueChanged.connect(self.set_frame)
         self.frame_slider.valueChanged.connect(self.set_frame)
 
+        self.image_loaded_signal.connect(self.update_progress_bar)
+
         self.key_bind('j', self.play_backward)
         self.key_bind('k', self.stop_playback)
         self.key_bind('l', self.play_forward)
+
+    @QtCore.pyqtSlot()
+    def update_progress_bar(self):
+        current_value = self.prefetch_progress_bar.value()
+        self.prefetch_progress_bar.setValue(current_value + 1)
+
+    def prefetch(self):
+        # Calculate the range of frames to prefetch
+        start_frame = self.current_frame
+        end_frame = self.end_frame_spin_box.value()
+
+        # Set the range for the progress bar
+        total_frames = end_frame - start_frame + 1
+        self.prefetch_progress_bar.setMaximum(total_frames)
+        self.prefetch_progress_bar.setValue(0)
+
+        for frame in range(start_frame, end_frame + 1):
+            image_path = self.path_sequence.get_frame_path(frame)
+            # Create a worker and pass the read_image function to it
+            worker = ImageLoader(self, frame, image_path)
+            # Start the worker thread
+            self.thread_pool.start(worker)
+            # self.thread_pool.waitForDone(0)
 
     def key_bind(self, key_sequence: str, function: Callable):
         # Create a shortcut
@@ -181,6 +242,10 @@ class PlayerWidget(QtWidgets.QWidget):
             next_frame = self.current_frame - increment
 
         self.set_frame(next_frame)
+
+    def closeEvent(self, event):
+        self.thread_pool.clear()  # clears the queued tasks, but won't stop currently running threads
+        super().closeEvent(event)
 
 if __name__ == "__main__":
     
