@@ -8,6 +8,8 @@ from typing import Callable, Tuple, List
 from OpenGL import GL
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from theme import theme
+
 from tranformation import apply_transformation, create_translation_matrix, create_rotation_matrix, create_scale_matrix
 from entity import Entity, CanvasEntity, LayerEntity, ShapeEntity
 from shaders.viewer_shader import ViewerShaderProgram
@@ -359,6 +361,7 @@ class MainUI(QtWidgets.QWidget):
 if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
+    theme.set_theme(app, theme='dark')
     win = MainUI()
     win.show()
     sys.exit( app.exec() )
