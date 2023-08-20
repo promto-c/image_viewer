@@ -9,7 +9,7 @@ from OpenGL import GL
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from tranformation import apply_transformation, create_translation_matrix, create_rotation_matrix, create_scale_matrix
-from entity import Entity, CanvasEntity, LayerEntity, LineEntity
+from entity import Entity, CanvasEntity, LayerEntity, ShapeEntity
 from shaders.viewer_shader import ViewerShaderProgram
 
 def clamp(value: float, min_value: float, max_value: float) -> float:
@@ -55,7 +55,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.line_start = None
         self.line_end = None
 
-        self.entities: List[Entity] = list()
+        self.vector_entities: List[Entity] = list()
 
         self.shader_program = None
         self.canvas_entity = None
@@ -123,10 +123,12 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     @_use_shader
     def _render(self):
-        # Render the entities
-        self.canvas_entity.render()
-        for entity in self.entities:
-            entity.render()
+        # Render the canvas entity
+        self.canvas_entity.render(self.shader_program)
+
+        # Render the vector entities
+        for entity in self.vector_entities:
+            entity.render(self.shader_program)
 
     def _handle_viewer_zoom(self, zoom_delta: float, pivot_coords: QtCore.QPoint) -> None:
         """Handle the viewer zoom based on the zoom delta and wheel event
@@ -334,21 +336,20 @@ class MainUI(QtWidgets.QWidget):
         self.main_layout.addWidget(self.switch_button, 1, 0)
         self.setLayout(self.main_layout)
 
+        self.shape = ShapeEntity(points=[(0.0, 0.0)])
+
+        self.viewer.vector_entities.append(self.shape)
+
     def _setup_signal_connections(self):
         self.viewer.left_mouse_pressed.connect(self.store_start_pos)
-        self.viewer.left_mouse_released.connect(self.draw_line)
+        # self.viewer.left_mouse_released.connect(self.draw_line)
 
     def store_start_pos(self, event: QtGui.QMouseEvent):
         self.line_start = self.viewer.pixel_to_gl_coords(event.pos())
 
-    def draw_line(self, event: QtGui.QMouseEvent):
-        self.line_end = self.viewer.pixel_to_gl_coords(event.pos())
-
-        line = LineEntity(line_start=self.line_start, line_end=self.line_end)
-        self.viewer.entities.append(line)
-
+        self.shape.add_point(self.line_start)
         self.viewer.update()
-        
+
     def switch_image(self):
         if np.array_equal(self.viewer.image_data, self.image_data):
             self.viewer.set_image(self.image_data2)
