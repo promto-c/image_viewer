@@ -1,5 +1,6 @@
 import sys
 from typing import Callable
+from functools import lru_cache
 
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
@@ -66,7 +67,6 @@ class PlayerWidget(QtWidgets.QWidget):
         self.path_sequence = PathSequence(self.input_path)
         self.first_frame, self.last_frame = self.path_sequence.get_frame_range()
         self.current_frame = self.first_frame
-        self.path_to_image_dict = dict()
 
     def _setup_ui(self):
         self.play_forward_timer = QtCore.QTimer(self)
@@ -146,11 +146,7 @@ class PlayerWidget(QtWidgets.QWidget):
 
     def get_image_data(self, frame: int):
         image_path = self.path_sequence.get_frame_path(frame)
-        
-        if image_path not in self.path_to_image_dict:
-            self.path_to_image_dict[image_path] = self.read_image(image_path)
-
-        return self.path_to_image_dict[image_path]
+        return self.read_image(image_path)
 
     def set_lift(self, lift_value: float):
         self.viewer.lift = lift_value
@@ -164,6 +160,7 @@ class PlayerWidget(QtWidgets.QWidget):
         self.viewer.gain = gain_value
         self.viewer.update()
 
+    @lru_cache(maxsize=400)
     def read_image(self, file_path: str()):
         image_data = read_exr(file_path)
 
