@@ -3,6 +3,8 @@ from typing import Callable
 
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
+from theme import theme
+
 from viewer import ImageViewerGLWidget
 from utils.image_utils import read_exr
 from utils.path_utils import PathSequence, PROJECT_ROOT
@@ -184,7 +186,10 @@ class PlayerWidget(QtWidgets.QWidget):
         self.set_frame(next_frame)
 
 if __name__ == "__main__":
+    
     app = QtWidgets.QApplication(sys.argv)
+    theme.set_theme(app, theme='dark')
+
     image_path = 'example_exr_plates\C0653.####.exr'
     
     player_widget = PlayerWidget(image_path)
