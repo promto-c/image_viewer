@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Tuple
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -25,12 +26,18 @@ class ViewerShaderProgram(QtGui.QOpenGLShaderProgram):
         self.uniform_loc_gamma = self.uniformLocation("gamma")
         self.uniform_loc_gain = self.uniformLocation("gain")
 
+        self.uniform_loc_is_texture = self.uniformLocation("isTexture")
+        self.uniform_loc_custom_color = self.uniformLocation("color")
+
     def __enter__(self):
         self.bind()
         return self
 
     def __exit__( self, typ, val, tb ):
         self.release()
+    
+    def id(self):
+        return self.programId()
 
     def set_lift(self, lift: float):
         self.setUniformValue(self.uniform_loc_lift, lift)
@@ -43,3 +50,13 @@ class ViewerShaderProgram(QtGui.QOpenGLShaderProgram):
 
     def set_tranformation(self, tranformation: np.ndarray):
         self.setUniformValue(self.uniform_loc_transformation, QtGui.QMatrix4x4(tranformation.flatten()))
+
+    def set_is_texture(self, is_texture: bool):
+        self.setUniformValue(self.uniform_loc_is_texture, is_texture)
+
+    def set_color(self, r, g, b, a):
+        self.set_is_texture(False)
+        self.setUniformValue(self.uniform_loc_custom_color, QtGui.QVector4D(r, g, b, a))
+
+    def use_texture(self):
+        self.set_is_texture(True)

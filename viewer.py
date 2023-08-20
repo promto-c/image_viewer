@@ -3,13 +3,15 @@ import cv2
 import numpy as np
 from functools import wraps
 
-from typing import Tuple, List
+from typing import Callable, Tuple, List
 
 from OpenGL import GL
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from theme import theme
+
 from tranformation import apply_transformation, create_translation_matrix, create_rotation_matrix, create_scale_matrix
-from entity import Entity, CanvasEntity, LayerEntity, LineEntity
+from entity import Entity, CanvasEntity, LayerEntity, ShapeEntity
 from shaders.viewer_shader import ViewerShaderProgram
 
 def clamp(value: float, min_value: float, max_value: float) -> float:
@@ -22,7 +24,11 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
     MIN_ZOOM = 0.1
     MAX_ZOOM = 10.0
 
-    ZOOM_STEP = 0.5
+    ZOOM_STEP = 0.1
+
+    left_mouse_pressed = QtCore.pyqtSignal(QtGui.QMouseEvent)
+    left_mouse_released = QtCore.pyqtSignal(QtGui.QMouseEvent)
+    left_mouse_moved = QtCore.pyqtSignal(QtGui.QMouseEvent)
 
     # Initialization and Setup
     # ------------------------
@@ -51,7 +57,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.line_start = None
         self.line_end = None
 
-        self.entities: List[Entity] = list()
+        self.vector_entities: List[Entity] = list()
 
         self.shader_program = None
         self.canvas_entity = None
@@ -77,7 +83,10 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         """Set up signal connections between widgets and slots.
         """
         # Connect signals to slots here
-        pass
+
+        # Key Binds
+        # --------
+        self.key_bind('F', self.fit_in_view)
 
     # Private Methods
     # ---------------
@@ -106,20 +115,30 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         scaled_width = (self.image_width/self.width()) * self._viewer_zoom
         scaled_height = (self.image_height/self.height()) * self._viewer_zoom
 
-        translation_matrix = create_translation_matrix(x_offset, y_offset)
-        scale_matrix = create_scale_matrix(scaled_width, scaled_height)
+        # translation_matrix = create_translation_matrix(x_offset, y_offset)
+        # scale_matrix = create_scale_matrix(scaled_width, scaled_height)
 
-        self.viewer_transformation_matrix = np.dot(translation_matrix, scale_matrix)
+        # self.viewer_transformation_matrix = np.dot(translation_matrix, scale_matrix)
+
+        # Directly compute the required transformation matrix 
+        self.viewer_transformation_matrix = np.array([
+            [scaled_width, 0, 0, x_offset],
+            [0, scaled_height, 0, y_offset],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ])
 
         # Update the uniform variable in the shader
         self.shader_program.set_tranformation(self.viewer_transformation_matrix)
 
     @_use_shader
     def _render(self):
-        # Render the entities
-        self.canvas_entity.render()
-        for entity in self.entities:
-            entity.render()
+        # Render the canvas entity
+        self.canvas_entity.render(self.shader_program)
+
+        # Render the vector entities
+        for entity in self.vector_entities:
+            entity.render(self.shader_program)
 
     def _handle_viewer_zoom(self, zoom_delta: float, pivot_coords: QtCore.QPoint) -> None:
         """Handle the viewer zoom based on the zoom delta and wheel event
@@ -204,6 +223,12 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         # Update the widget to reset the zoom level and offset
         self.update()
 
+    def key_bind(self, key_sequence: str, function: Callable):
+        # Create a shortcut
+        shortcut = QtWidgets.QShortcut(QtGui.QKeySequence(key_sequence), self)
+        # Connect the activated signal of the shortcut to the slot
+        shortcut.activated.connect(function)
+
     # OpenGL Initialization and Setup
     # -------------------------------
     def initializeGL(self):
@@ -217,6 +242,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
         # Set the image to display
         self.set_image(self.image_data)
+        self.fit_in_view()
 
     def paintGL(self) -> None:
         """Paint the OpenGL widget.
@@ -242,7 +268,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             self._prev_drag_offset = self._drag_offset
     
         elif event.button() == QtCore.Qt.MouseButton.LeftButton:
-            self.line_start = self.pixel_to_gl_coords(event.pos())
+            self.left_mouse_pressed.emit(event)
 
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
         """Handle mouse release event.
@@ -251,12 +277,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             event (QtGui.QMouseEvent): Mouse event.
         """
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
-            self.line_end = self.pixel_to_gl_coords(event.pos())
-
-            line = LineEntity(line_start=self.line_start, line_end=self.line_end)
-            self.entities.append(line)
-
-            self.update()
+            self.left_mouse_released.emit(event)
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
         """Handle mouse move event.
@@ -269,6 +290,9 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             y_offset = event.y() - self._drag_start[1]
             self._drag_offset = (self._prev_drag_offset[0] + x_offset, self._prev_drag_offset[1] + y_offset)
             self.update()
+
+        if event.buttons() & QtCore.Qt.MouseButton.MiddleButton:
+            self.left_mouse_moved.emit(event)
 
     def sizeHint(self) -> QtCore.QSize:
         """Get the preferred size of the widget.
@@ -309,27 +333,43 @@ class MainUI(QtWidgets.QWidget):
         self.image_data2 = cv2.cvtColor(image_data2, cv2.COLOR_BGR2RGB)
         self.image_data2 = self.image_data2.astype(np.float32) / 255.0
 
-        self.setup_ui()
+        self._setup_ui()
+        self._setup_signal_connections()
 
-    def setup_ui(self):
-        self.gl_widget = ImageViewerGLWidget(self, image_data=self.image_data)
+    def _setup_ui(self):
+        self.viewer = ImageViewerGLWidget(self, image_data=self.image_data)
         self.switch_button = QtWidgets.QPushButton("Switch Image", self)
         self.switch_button.clicked.connect(self.switch_image)
 
         self.main_layout = QtWidgets.QGridLayout()
-        self.main_layout.addWidget(self.gl_widget, 0, 0)
+        self.main_layout.addWidget(self.viewer, 0, 0)
         self.main_layout.addWidget(self.switch_button, 1, 0)
         self.setLayout(self.main_layout)
 
+        self.shape = ShapeEntity(points=[(0.0, 0.0)])
+
+        self.viewer.vector_entities.append(self.shape)
+
+    def _setup_signal_connections(self):
+        self.viewer.left_mouse_pressed.connect(self.store_start_pos)
+        # self.viewer.left_mouse_released.connect(self.draw_line)
+
+    def store_start_pos(self, event: QtGui.QMouseEvent):
+        self.line_start = self.viewer.pixel_to_gl_coords(event.pos())
+
+        self.shape.add_point(self.line_start)
+        self.viewer.update()
+
     def switch_image(self):
-        if np.array_equal(self.gl_widget.image_data, self.image_data):
-            self.gl_widget.set_image(self.image_data2)
+        if np.array_equal(self.viewer.image_data, self.image_data):
+            self.viewer.set_image(self.image_data2)
         else:
-            self.gl_widget.set_image(self.image_data)
+            self.viewer.set_image(self.image_data)
 
 if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
+    theme.set_theme(app, theme='dark')
     win = MainUI()
     win.show()
     sys.exit( app.exec() )
