@@ -115,10 +115,18 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         scaled_width = (self.image_width/self.width()) * self._viewer_zoom
         scaled_height = (self.image_height/self.height()) * self._viewer_zoom
 
-        translation_matrix = create_translation_matrix(x_offset, y_offset)
-        scale_matrix = create_scale_matrix(scaled_width, scaled_height)
+        # translation_matrix = create_translation_matrix(x_offset, y_offset)
+        # scale_matrix = create_scale_matrix(scaled_width, scaled_height)
 
-        self.viewer_transformation_matrix = np.dot(translation_matrix, scale_matrix)
+        # self.viewer_transformation_matrix = np.dot(translation_matrix, scale_matrix)
+
+        # Directly compute the required transformation matrix 
+        self.viewer_transformation_matrix = np.array([
+            [scaled_width, 0, 0, x_offset],
+            [0, scaled_height, 0, y_offset],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ])
 
         # Update the uniform variable in the shader
         self.shader_program.set_tranformation(self.viewer_transformation_matrix)
