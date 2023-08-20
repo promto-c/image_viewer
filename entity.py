@@ -1,10 +1,39 @@
-from typing import Tuple, List
+from typing import Dict, Tuple, List, Union
 from OpenGL import GL
 import numpy as np
 
+from numbers import Number
+
+from collections import defaultdict
 from functools import wraps
 
 import ctypes
+
+from shaders.viewer_shader import ViewerShaderProgram
+
+def create_vbo(data):
+    vbo = GL.glGenBuffers(1)
+    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
+    GL.glBufferData(GL.GL_ARRAY_BUFFER, np.array(data, dtype=np.float32), GL.GL_STATIC_DRAW)
+    return vbo
+
+def draw_with_vbo(vbo, draw_mode, num_points):
+    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
+    GL.glEnableVertexAttribArray(0)
+    GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+    GL.glDrawArrays(draw_mode, 0, num_points)
+    GL.glDisableVertexAttribArray(0)
+    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
+
+def draw_points(points: List[Tuple[float, float]], point_size: float = 5.0) -> np.uintc:
+    vbo = create_vbo(points)
+    GL.glPointSize(point_size)
+    draw_with_vbo(vbo, GL.GL_POINTS, len(points))
+
+    return vbo
+
+def cleanup_vbo(vbo):
+    GL.glDeleteBuffers(1, [vbo])
 
 class Texture2D:
 
@@ -105,7 +134,7 @@ class Entity:
     def __init__(self):
         pass
 
-    def render(self):
+    def render(self, frame: Union[Number, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
         raise NotImplementedError("Subclasses must implement the render method.")
 
 class LayerEntity(Entity):
@@ -113,10 +142,10 @@ class LayerEntity(Entity):
         self.transformation_matrix = np.eye(4)
         self.children: List[Entity] = list()
 
-    def render(self):
+    def render(self, frame: Union[Number, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
         # Apply the transformation matrix to the children
         for child in self.children:
-            child.render()
+            child.render(frame, shader_program)
 
     def add_child(self, child):
         self.children.append(child)
@@ -134,26 +163,55 @@ class LayerEntity(Entity):
     def get_transformation_matrix(self):
         return self.transformation_matrix
 
-class LineEntity(Entity):
-    def __init__(self, line_start, line_end, line_width=2.0, line_color=(1.0, 0.0, 0.0)):
-        self.line_start = line_start
-        self.line_end = line_end
-        self.line_width = line_width
-        self.line_color = line_color
+# class LineEntity(Entity):
+#     def __init__(self, line_start, line_end, line_width=2.0, line_color=(1.0, 0.0, 0.0)):
+#         self.line_start = line_start
+#         self.line_end = line_end
+#         self.line_width = line_width
+#         self.line_color = line_color
 
-    def render(self):
-        # Set the line width to the calculated pixel size
-        GL.glLineWidth(self.line_width)
+#     def render(self):
+#         # Set the line width to the calculated pixel size
+#         GL.glLineWidth(self.line_width)
 
-        # Draw the line
-        GL.glColor3f(*self.line_color)
-        GL.glBegin(GL.GL_LINES)
-        GL.glVertex2f(*self.line_start)
-        GL.glVertex2f(*self.line_end)
-        GL.glEnd()
+#         # Draw the line
+#         GL.glColor3f(*self.line_color)
+#         GL.glBegin(GL.GL_LINES)
+#         GL.glVertex2f(*self.line_start)
+#         GL.glVertex2f(*self.line_end)
+#         GL.glEnd()
 
-        # Reset the color to white
-        GL.glColor3f(1.0, 1.0, 1.0)
+#         # Reset the color to white
+#         GL.glColor3f(1.0, 1.0, 1.0)
+
+class TrackerEntity(Entity):
+    def __init__(self, track_points: List[Tuple[float, float]], point_size=5.0, track_color=(0.0, 1.0, 0.0, 1.0)):
+        """
+        Initializes the tracker entity.
+
+        Args:
+        - track_points (List[Tuple[float, float]]): A list of (x, y) points representing the tracked object's location over time.
+        - point_size (float): Size of the tracked points when rendered.
+        - track_color (Tuple[float, float, float, float]): Color of the track.
+        """
+        self.track_points = np.array(track_points)
+        self.point_size = point_size
+        self.track_color = track_color
+        self.frame_to_points: Dict[Number, List[Tuple[float, float]]] = defaultdict(list)
+
+    def render(self, frame: Union[Number, None], shader_program: ViewerShaderProgram):
+        if frame not in self.frame_to_points:
+            return
+
+        points = self.frame_to_points[frame]
+        shader_program.set_color(*self.track_color)
+        vbo = draw_points(points, point_size=self.point_size)
+
+        cleanup_vbo(vbo)
+
+    def add_track_point(self, frame, point):
+        self.frame_to_points[frame].append(point)
+
 
 class ShapeEntity(Entity):
     def __init__(self, points: List[float], line_width=1.0, line_color=(1.0, 0.0, 0.0, 0.0), fill_color=None, is_bspline=True, degree=3, knot_vector=None):
@@ -191,21 +249,8 @@ class ShapeEntity(Entity):
         """
         self.show_control_points = not self.show_control_points
 
-    def _create_vbo(self, data):
-        vbo = GL.glGenBuffers(1)
-        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
-        GL.glBufferData(GL.GL_ARRAY_BUFFER, np.array(data, dtype=np.float32), GL.GL_STATIC_DRAW)
-        return vbo
 
-    def _draw_with_vbo(self, vbo, draw_mode, num_points):
-        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
-        GL.glEnableVertexAttribArray(0)
-        GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
-        GL.glDrawArrays(draw_mode, 0, num_points)
-        GL.glDisableVertexAttribArray(0)
-        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
-
-    def render(self, shader_program):
+    def render(self, frame: Union[Number, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
         # Ensure blending and depth testing are disabled for 2D rendering
         GL.glDisable(GL.GL_BLEND)
         GL.glDisable(GL.GL_DEPTH_TEST)
@@ -224,34 +269,30 @@ class ShapeEntity(Entity):
         if self.show_control_points:
             self._render_control_points(shader_program)
 
-    def _cleanup_vbo(self, vbo):
-        GL.glDeleteBuffers(1, [vbo])
-
     def _render_filled_shape(self, curve_points, shader_program):
-        vbo = self._create_vbo(curve_points)
+        vbo = create_vbo(curve_points)
         # GL.glColor3f(*self.fill_color)
         shader_program.set_color(*self.fill_color)
         
-        self._draw_with_vbo(vbo, GL.GL_POLYGON, len(curve_points))
-        self._cleanup_vbo(vbo)
+        draw_with_vbo(vbo, GL.GL_POLYGON, len(curve_points))
+        cleanup_vbo(vbo)
 
     def _render_outline(self, curve_points, shader_program):
 
-        vbo = self._create_vbo(curve_points)
+        vbo = create_vbo(curve_points)
         GL.glLineWidth(self.line_width)
         # GL.glColor3f(*self.line_color)
         shader_program.set_color(*self.line_color)
 
-        self._draw_with_vbo(vbo, GL.GL_LINE_LOOP, len(curve_points))
-        self._cleanup_vbo(vbo)
+        draw_with_vbo(vbo, GL.GL_LINE_LOOP, len(curve_points))
+        cleanup_vbo(vbo)
 
     def _render_control_points(self, shader_program):
-        vbo = self._create_vbo(self.points)
-        GL.glPointSize(5.0)
-        shader_program.set_color(0.1, 0.5, 0.8, 0.5)
 
-        self._draw_with_vbo(vbo, GL.GL_POINTS, len(self.points))
-        self._cleanup_vbo(vbo)
+        shader_program.set_color(0.1, 0.5, 0.8, 0.5)
+        vbo = draw_points(self.points)
+
+        cleanup_vbo(vbo)
 
     def add_point(self, point):
         """
@@ -284,6 +325,8 @@ class CanvasEntity(Entity):
         else:
             self.texture.set_image(image_data)
 
+    # TODO: Refacor to this form
+    #       `def render(self, frame: Union[Number, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):``
     def render(self, shader_program):
         if self.texture is None:
             return

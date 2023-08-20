@@ -2,7 +2,7 @@ import sys
 import cv2
 import numpy as np
 from functools import wraps
-
+from numbers import Number
 from typing import Callable, Tuple, List
 
 from OpenGL import GL
@@ -51,16 +51,14 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         """
         # Attributes
         # ------------------
-        self.image_height, self.image_width, _c = self.image_data.shape
-
-        # test draw line
-        self.line_start = None
-        self.line_end = None
+        self.canvas_height, self.canvas_width, _c = self.image_data.shape
 
         self.vector_entities: List[Entity] = list()
 
         self.shader_program = None
         self.canvas_entity = None
+
+        self.current_frame = 0.0
 
         # Set default values for lift, gamma, and gain
         self.lift = 0.0
@@ -112,8 +110,8 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         y_offset = -(self._drag_offset[1]/self.height()*2)
 
         # Calculate the scaled width and height of the image
-        scaled_width = (self.image_width/self.width()) * self._viewer_zoom
-        scaled_height = (self.image_height/self.height()) * self._viewer_zoom
+        scaled_width = (self.canvas_width/self.width()) * self._viewer_zoom
+        scaled_height = (self.canvas_height/self.height()) * self._viewer_zoom
 
         # translation_matrix = create_translation_matrix(x_offset, y_offset)
         # scale_matrix = create_scale_matrix(scaled_width, scaled_height)
@@ -138,7 +136,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
         # Render the vector entities
         for entity in self.vector_entities:
-            entity.render(self.shader_program)
+            entity.render(self.current_frame, self.shader_program)
 
     def _handle_viewer_zoom(self, zoom_delta: float, pivot_coords: QtCore.QPoint) -> None:
         """Handle the viewer zoom based on the zoom delta and wheel event
@@ -159,8 +157,8 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             zoom_delta = self._viewer_zoom - prev_viewer_zoom
 
             # Compute the scaled width and height of the image based on the zoom level change
-            scaled_width = (self.image_width/self.width()) * zoom_delta
-            scaled_height = (self.image_height/self.height()) * zoom_delta
+            scaled_width = (self.canvas_width/self.width()) * zoom_delta
+            scaled_height = (self.canvas_height/self.height()) * zoom_delta
 
             # Convert the cursor position from pixel coordinates to OpenGL coordinates
             gl_pos_x, gl_pos_y = self.pixel_to_gl_coords(pivot_coords)
@@ -178,6 +176,10 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     # Extended Methods
     # ----------------
+    def set_frame(self, frame: Number):
+        self.current_frame = frame
+        self.update()
+
     def set_image(self, image_data: np.ndarray) -> None:
         """Set the image to be displayed.
 
@@ -210,12 +212,34 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         x, y = apply_transformation((x, y), np.linalg.inv(self.viewer_transformation_matrix))
 
         return x, y
+    
+    def canvas_to_gl_coords(self, pixel_coords: Tuple[float, float]) -> Tuple[float, float]:
+        # Normalize coordinates to [0, 1] range based on the image size
+        x = pixel_coords[0] / self.canvas_width
+        y = pixel_coords[1] / self.canvas_height
+
+        # Shift coordinates to [-1, 1] range
+        x = 2 * x - 1
+        y = 2 * (1 - y) - 1
+
+        return x, y
+
+    def gl_to_canvas_coords(self, gl_coords: Tuple[float, float]) -> Tuple[float, float]:
+        x, y = gl_coords
+
+        x = (x + 1) / 2
+        y = 1 - ((y + 1) / 2)
+        
+        x = x * self.canvas_width
+        y = y * self.canvas_height
+
+        return x, y
 
     def fit_in_view(self):
         """Fits the image within the widget view while maintaining the aspect ratio.
         """
         # Calculate the new zoom level while preserving the aspect ratio
-        self._viewer_zoom = min(self.width() / self.image_width, self.height() / self.image_height)
+        self._viewer_zoom = min(self.width() / self.canvas_width, self.height() / self.canvas_height)
 
         # Reset the drag offset
         self._drag_offset = (0.0, 0.0)
@@ -300,7 +324,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         Returns:
             QtCore.QSize: Preferred size of the widget as a QSize.
         """
-        return QtCore.QSize(self.image_width, self.image_height)
+        return QtCore.QSize(self.canvas_width, self.canvas_height)
 
     def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
         """Method to handle wheel events
