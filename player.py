@@ -104,6 +104,10 @@ class PlayerWidget(QtWidgets.QWidget):
         self.current_frame_spin_box.valueChanged.connect(self.set_frame)
         self.frame_slider.valueChanged.connect(self.set_frame)
 
+        self.key_bind('j', self.play_backward)
+        self.key_bind('k', self.stop_playback)
+        self.key_bind('l', self.play_forward)
+
     def key_bind(self, key_sequence: str, function: Callable):
         # Create a shortcut
         shortcut = QtWidgets.QShortcut(QtGui.QKeySequence(key_sequence), self)
