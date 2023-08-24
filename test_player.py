@@ -14,41 +14,10 @@ from viewer import ImageViewerGLWidget
 from entity import TrackerEntity
 from utils.image_utils import read_exr
 from utils.path_utils import PathSequence, PROJECT_ROOT
+from utils.conversion_utils import to_uint8_gray, fps_to_interval_msc
 
 PLAYER_WIDGET_UI = PROJECT_ROOT / 'ui/test_player_widget.ui'
 
-
-def to_uint8_gray(image_data):
-    # Check if the image is colored (3 channels)
-    if len(image_data.shape) == 3 and image_data.shape[2] == 3:
-        image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2GRAY)
-
-    # Ensure the image is 8-bit
-    if image_data.dtype != np.uint8:
-        # Normalize the image to be in the range [0, 255]
-        image_data = cv2.normalize(image_data, None, 0, 255, cv2.NORM_MINMAX)
-        image_data = image_data.astype(np.uint8)
-
-    return image_data
-
-# def track_features_with_optical_flow(src_image_data, dst_image_data, src_keypoints):
-
-#     src_image_data = to_uint8_gray(src_image_data)
-#     dst_image_data = to_uint8_gray(dst_image_data)
-
-#     src_keypoints = src_keypoints.reshape(-1, 1, 2)
-
-#     # Parameters for Lucas-Kanade optical flow
-#     lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
-
-#     # Calculate optical flow
-#     dst_keypoints, status, err = cv2.calcOpticalFlowPyrLK(src_image_data, dst_image_data, src_keypoints, None, **lk_params)
-
-#     # Select good points (if status is 1)
-#     good_new = dst_keypoints[status == 1]
-#     # good_old = src_keypoints[status == 1]
-
-#     return good_new
 
 def detect_features_with_grid(algorithm: Any, src_image_data: np.ndarray, 
                               grid_size: Tuple[int, int] = (18, 16), 
@@ -93,23 +62,6 @@ def detect_features_with_grid(algorithm: Any, src_image_data: np.ndarray,
 
     return all_keypoints
 
-
-def fps_to_interval_msc(fps) -> int:
-    """Converts frames per second to time interval in milliseconds.
-
-    Args:
-        fps (float): Frames per second.
-
-    Returns:
-        float: Time interval between frames in milliseconds.
-
-    Raises:
-        ValueError: If FPS is not a positive value.
-    """
-    if fps <= 0:
-        raise ValueError("FPS must be a positive value.")
-    
-    return int(1000 / fps)
 
 class ImageLoader(QtCore.QRunnable):
     def __init__(self, widget, frame, file_path):
