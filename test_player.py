@@ -63,7 +63,7 @@ def detect_features_with_grid(algorithm: Any, src_image_data: np.ndarray,
     return all_keypoints
 
 
-class ImageLoader(QtCore.QRunnable):
+class ImageLoaderWorker(QtCore.QRunnable):
     def __init__(self, widget, frame, file_path):
         super().__init__()
         self.widget = widget
@@ -157,18 +157,24 @@ class Tracker:
 
         return all_keypoints
     
-    def matching(self, src_image_data: np.ndarray, dst_image_data: np.ndarray, src_keypoints: List[Tuple[float, float]]):
+    @staticmethod
+    def convert_keypoints(keypoints: List[Tuple[float, float]]) -> np.ndarray:
+        keypoints = np.array(keypoints, dtype=np.float32)
+        return keypoints.reshape(-1, 1, 2)
+
+    def matching(self, src_image_data: np.ndarray, dst_image_data: np.ndarray, src_keypoints: List[Tuple[float, float]], 
+                 dst_keypoints: List[Tuple[float, float]]) -> np.ndarray:
         src_image_data = to_uint8_gray(src_image_data)
         dst_image_data = to_uint8_gray(dst_image_data)
 
-        src_keypoints = np.array(src_keypoints, dtype=np.float32)
-        src_keypoints = src_keypoints.reshape(-1, 1, 2)
+        src_keypoints = self.convert_keypoints(src_keypoints)
+        dst_keypoints = self.convert_keypoints(dst_keypoints) if dst_keypoints is not None else None
 
         # Parameters for Lucas-Kanade optical flow
         lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
         # Calculate optical flow
-        dst_keypoints, status, err = cv2.calcOpticalFlowPyrLK(src_image_data, dst_image_data, src_keypoints, None, **lk_params)
+        dst_keypoints, status, err = cv2.calcOpticalFlowPyrLK(src_image_data, dst_image_data, src_keypoints, dst_keypoints, **lk_params)
 
         # Select good points (if status is 1)
         good_new = dst_keypoints[status == 1]
@@ -351,7 +357,15 @@ class PlayerWidget(QtWidgets.QWidget):
         # NOTE:
         dst_image_data = self.get_image_data(self.current_frame+1)
 
-        dst_keypoints = self.tracker.matching(image_data, dst_image_data, keypoints)
+        # Get dst_points, if next frame already has points
+        if self.current_frame+1 in self.tracker_entity.frame_to_points:
+             keypoints_gl = self.tracker_entity.frame_to_points.get(self.current_frame)
+             dst_keypoints = [self.viewer.gl_to_canvas_coords(keypoint_gl) for keypoint_gl in keypoints_gl]
+
+        else:
+            dst_keypoints = None
+
+        dst_keypoints = self.tracker.matching(image_data, dst_image_data, keypoints, dst_keypoints)
 
         for keypoint in dst_keypoints:
             keypoint_gl = self.viewer.canvas_to_gl_coords(keypoint)
@@ -392,7 +406,7 @@ class PlayerWidget(QtWidgets.QWidget):
         for frame in range(start_frame, end_frame + 1):
             image_path = self.path_sequence.get_frame_path(frame)
             # Create a worker and pass the read_image function to it
-            worker = ImageLoader(self, frame, image_path)
+            worker = ImageLoaderWorker(self, frame, image_path)
             # Start the worker thread
             self.thread_pool.start(worker)
             # self.thread_pool.waitForDone(0)
