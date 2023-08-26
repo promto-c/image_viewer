@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from theme import theme
 
 from viewer import ImageViewerGLWidget
-from entity import TrackerEntity
+from entity import TrackPointsEntity
 from utils.image_utils import read_exr
 from utils.path_utils import PathSequence, PROJECT_ROOT
 from utils.conversion_utils import to_uint8_gray, fps_to_interval_msc
@@ -253,7 +253,7 @@ class PlayerWidget(QtWidgets.QWidget):
         self.play_forward_timer = QtCore.QTimer(self)
         self.play_backward_timer = QtCore.QTimer(self)
 
-        self.tracker_entity = TrackerEntity([])
+        self.tracker_entity = TrackPointsEntity([])
 
         self.viewer.vector_entities.append(self.tracker_entity)
 

@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, List, Union
+from typing import Any, Dict, Tuple, List, Union, TypeVar, Generic
 from OpenGL import GL
 import numpy as np
 
@@ -6,6 +6,8 @@ from numbers import Number
 
 from collections import defaultdict
 from functools import wraps
+
+from dataclasses import dataclass, field
 
 import ctypes
 
@@ -134,7 +136,7 @@ class Entity:
     def __init__(self):
         pass
 
-    def render(self, frame: Union[Number, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
+    def render(self, frame: Union[float, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
         raise NotImplementedError("Subclasses must implement the render method.")
 
 class LayerEntity(Entity):
@@ -142,7 +144,7 @@ class LayerEntity(Entity):
         self.transformation_matrix = np.eye(4)
         self.children: List[Entity] = list()
 
-    def render(self, frame: Union[Number, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
+    def render(self, frame: Union[float, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
         # Apply the transformation matrix to the children
         for child in self.children:
             child.render(frame, shader_program)
@@ -184,7 +186,79 @@ class LayerEntity(Entity):
 #         # Reset the color to white
 #         GL.glColor3f(1.0, 1.0, 1.0)
 
-class TrackerEntity(Entity):
+
+# property_to_type_dict = dict(
+#     id=int, 
+#     x=float, 
+#     y=float, 
+#     error=float, 
+#     is_keyframe=bool,
+# )
+# TrackPoint = create_class_that_contains_properties(name='TrackPoint', property_to_type_dict=property_to_type_dict)
+
+# track_point = TrackPoint(id=1, x=1.2, y=1.1, error=0.25, is_keyframe=False)
+
+# print(track_point.x)
+
+T = TypeVar('T')
+
+class PropertyMeta(type):
+    def __getitem__(self, item):
+        return self
+
+class Property(Generic[T], metaclass=PropertyMeta):
+    def __init__(self, type: T, value: Union[T, None] = None, 
+                 frame: float = None, is_animated: bool = False):
+        self.type = type
+        self.is_animated = is_animated
+        self.values = {frame: value}
+
+    def get_value(self, frame: float = None) -> T:
+        # TODO: Get interpolate value if it animate and frame not in dict 
+        return self.values.get(frame)
+
+    def set_value(self, value: T, frame: float = None):
+        self.values[frame] = value
+
+class Properties:
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+class TrackPointEntity(Entity):
+
+    properties = Properties(
+        gl_position = Property(type=Tuple[float, float], is_animated=True),
+        color = Property(type=Tuple[float, float, float, float]),
+    )
+
+    def __init__(self, frame: float, gl_position: Tuple[float, float], color=(0.0, 1.0, 0.0, 1.0), point_size=5.0):
+        """Initializes the tracker entity.
+        """
+        # self.properties = TrackPointProperties()
+        self.properties.gl_position.set_value(frame, gl_position)
+        self.properties.color.set_value(color)
+
+        # TODO: This should be global appearance's property instead of entity's property
+        self.point_size = point_size
+
+    def render(self, frame: Union[float, None], shader_program: ViewerShaderProgram):
+        
+        gl_position = self.properties.gl_position.get_value(frame)
+        if gl_position is None:
+            return
+
+        color = self.properties.color.get_value()
+
+        shader_program.set_color(*color)
+        vbo = draw_points([gl_position], point_size=self.point_size)
+
+        cleanup_vbo(vbo)
+
+    def set_position(self, frame, gl_position: Tuple[float, float]):
+        self.frame_to_point[frame] = gl_position
+
+class TrackPointsEntity(Entity):
     def __init__(self, track_points: List[Tuple[float, float]], point_size=5.0, track_color=(0.0, 1.0, 0.0, 1.0)):
         """
         Initializes the tracker entity.
@@ -209,7 +283,7 @@ class TrackerEntity(Entity):
 
         cleanup_vbo(vbo)
 
-    def add_track_point(self, frame, point):
+    def add_track_point(self, frame, point: Tuple[float, float]):
         self.frame_to_points[frame].append(point)
 
 
@@ -252,7 +326,7 @@ class ShapeEntity(Entity):
 
     def render(self, frame: Union[Number, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
         # Ensure blending and depth testing are disabled for 2D rendering
-        GL.glDisable(GL.GL_BLEND)
+        # GL.glDisable(GL.GL_BLEND)
         GL.glDisable(GL.GL_DEPTH_TEST)
         
         if self.is_bspline:
@@ -326,7 +400,7 @@ class CanvasEntity(Entity):
             self.texture.set_image(image_data)
 
     # TODO: Refacor to this form
-    #       `def render(self, frame: Union[Number, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):``
+    #       `def render(self, frame: Union[float, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):``
     def render(self, shader_program):
         if self.texture is None:
             return
