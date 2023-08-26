@@ -1,6 +1,11 @@
+import os
 import numpy as np
+from numbers import Number
+from functools import lru_cache
 import OpenEXR
 import Imath
+
+from utils.path_utils import PathSequence
 
 def read_exr(image_path: str) -> np.ndarray:
     """Read an EXR image from file and return it as a NumPy array.
@@ -12,6 +17,9 @@ def read_exr(image_path: str) -> np.ndarray:
         np.ndarray: The image data as a NumPy array.
 
     """
+    if not os.path.isfile(image_path):
+        return None
+
     # Open the EXR file for reading
     exr_file = OpenEXR.InputFile(image_path)
 
@@ -45,3 +53,32 @@ def read_exr(image_path: str) -> np.ndarray:
         image_data[:, :, i] = pixels.reshape((height, width))
 
     return image_data
+
+class ImageSequence:
+
+    def __init__(self, input_path: str) -> None:
+        self.input_path = input_path
+
+        # Set up the initial attributes
+        self._setup_attributes()
+
+    def _setup_attributes(self):
+        self.path_sequence = PathSequence(self.input_path)
+
+    @lru_cache(maxsize=400)
+    def read_image(self, file_path: str()):
+        image_data = read_exr(file_path)
+
+        return image_data
+
+    def get_image_data(self, frame: Number):
+        image_path = self.get_frame_path(frame)
+        return self.read_image(image_path)
+    
+    # From Path Sequence
+    # ------------------
+    def frame_range(self):
+        return self.path_sequence.get_frame_range()
+
+    def get_frame_path(self, frame: Number):
+        return self.path_sequence.get_frame_path(frame)

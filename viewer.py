@@ -1,18 +1,26 @@
+# Standard Library Imports
+# ------------------------
 import sys
-import cv2
 import numpy as np
 from functools import wraps
 from numbers import Number
-from typing import Callable, Tuple, List
+from typing import Callable, Tuple, List, Union
 
+# Third Party Imports
+# -------------------
+import cv2
 from OpenGL import GL
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qtpy import QtCore, QtGui, QtWidgets
 
+# Local Imports
+# -------------
 from theme import theme
-
-from tranformation import apply_transformation, create_translation_matrix, create_rotation_matrix, create_scale_matrix
+from tranformation import apply_transformation
 from entity import Entity, CanvasEntity, LayerEntity, ShapeEntity
 from shaders.viewer_shader import ViewerShaderProgram
+from utils.image_utils import ImageSequence
+from nodes.node import Node
+
 
 def clamp(value: float, min_value: float, max_value: float) -> float:
     """Helper method to clamp a value between a minimum and maximum value
@@ -26,23 +34,25 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     ZOOM_STEP = 0.1
 
-    left_mouse_pressed = QtCore.pyqtSignal(QtGui.QMouseEvent)
-    left_mouse_released = QtCore.pyqtSignal(QtGui.QMouseEvent)
-    left_mouse_moved = QtCore.pyqtSignal(QtGui.QMouseEvent)
+    left_mouse_pressed = QtCore.Signal(QtGui.QMouseEvent)
+    left_mouse_released = QtCore.Signal(QtGui.QMouseEvent)
+    left_mouse_moved = QtCore.Signal(QtGui.QMouseEvent)
 
     # Initialization and Setup
     # ------------------------
-    def __init__(self, parent=None, image_data=None):
+    def __init__(self, image: Union[Tuple[int, int], np.ndarray, ImageSequence] = None, parent=None):
         # Initialize the super class
         super().__init__(parent)
 
+        format = QtGui.QSurfaceFormat()
+        format.setSamples(4)  # Change the number for more or less anti-aliasing
+        QtGui.QSurfaceFormat.setDefaultFormat(format)
+
         # Store the arguments
-        self.image_data = image_data
+        self.image = image
 
         # Set up the initial values
         self._setup_attributes()
-        # Set up the UI
-        self._setup_ui()
         # Set up signal connections
         self._setup_signal_connections()
 
@@ -50,9 +60,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         """Set up the initial values for the widget.
         """
         # Attributes
-        # ------------------
-        self.canvas_height, self.canvas_width, _c = self.image_data.shape
-
+        # ----------
         self.vector_entities: List[Entity] = list()
 
         self.shader_program = None
@@ -70,18 +78,53 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self._drag_start = None
         self._viewer_zoom = 1.0
         self._drag_offset = (0.0, 0.0)
-        
-    def _setup_ui(self):
-        """Set up the UI for the widget, including creating widgets and layouts.
+
+        self.set_image(self.image)
+
+    # TODO: Refactor
+    def set_image(self, image: Union[np.ndarray, Tuple[int, int], ImageSequence, Node]) -> None:
+        """Set the image to be displayed.
+
+        Args:
+            image (np.ndarray): Image data as a NumPy array.
         """
-        # 
-        pass
+        self.image = image
+
+        if isinstance(self.image, tuple):
+            self.canvas_width, self.canvas_height = self.image
+            self.image = np.zeros((self.canvas_height, self.canvas_width, 3), dtype=np.float32)
+            image_data = self.image
+
+        elif isinstance(self.image, np.ndarray):
+            self.canvas_height, self.canvas_width, _c = self.image.shape
+            image_data = self.image
+
+        elif isinstance(self.image, ImageSequence):
+            image_data = self.image.get_image_data(self.current_frame)
+            self.canvas_height, self.canvas_width, _c = image_data.shape
+
+        elif isinstance(self.image, Node):
+            image_data = self.image.get_image_data(self.current_frame)
+            if image_data is None:
+                self.canvas_width, self.canvas_height = 100, 100
+                image_data = np.zeros((self.canvas_height, self.canvas_width, 3), dtype=np.float32)
+            else:
+                self.canvas_height, self.canvas_width, _c = image_data.shape
+
+        else:
+            self.canvas_width, self.canvas_height = 100, 100
+            self.image = np.zeros((self.canvas_height, self.canvas_width, 3), dtype=np.float32)
+            image_data = self.image
+
+        if self.canvas_entity is None:
+            return
+
+        self.canvas_entity.set_image(image_data)
+        self.update()
 
     def _setup_signal_connections(self):
         """Set up signal connections between widgets and slots.
         """
-        # Connect signals to slots here
-
         # Key Binds
         # --------
         self.key_bind('F', self.fit_in_view)
@@ -113,11 +156,6 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         scaled_width = (self.canvas_width/self.width()) * self._viewer_zoom
         scaled_height = (self.canvas_height/self.height()) * self._viewer_zoom
 
-        # translation_matrix = create_translation_matrix(x_offset, y_offset)
-        # scale_matrix = create_scale_matrix(scaled_width, scaled_height)
-
-        # self.viewer_transformation_matrix = np.dot(translation_matrix, scale_matrix)
-
         # Directly compute the required transformation matrix 
         self.viewer_transformation_matrix = np.array([
             [scaled_width, 0, 0, x_offset],
@@ -132,11 +170,15 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
     @_use_shader
     def _render(self):
         # Render the canvas entity
-        self.canvas_entity.render(self.shader_program)
+        self.canvas_entity.render()
 
         # Render the vector entities
         for entity in self.vector_entities:
-            entity.render(self.current_frame, self.shader_program)
+            entity.render(self.current_frame, self)
+
+        if isinstance(self.image, Node):
+            for entity in self.image.vector_entities:
+                entity.render(self.current_frame, self)
 
     def _handle_viewer_zoom(self, zoom_delta: float, pivot_coords: QtCore.QPoint) -> None:
         """Handle the viewer zoom based on the zoom delta and wheel event
@@ -161,7 +203,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             scaled_height = (self.canvas_height/self.height()) * zoom_delta
 
             # Convert the cursor position from pixel coordinates to OpenGL coordinates
-            gl_pos_x, gl_pos_y = self.pixel_to_gl_coords(pivot_coords)
+            gl_pos_x, gl_pos_y = self.diaplay_to_gl_coords(pivot_coords)
 
             # Scale the cursor position by the scaled width and height
             gl_pos_x *= scaled_width
@@ -177,21 +219,18 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
     # Extended Methods
     # ----------------
     def set_frame(self, frame: Number):
+        if not isinstance(self.image, (ImageSequence, Node)):
+            # TODO: Print something
+            return
+
         self.current_frame = frame
+        self.canvas_entity.set_image(self.image.get_image_data(frame))
         self.update()
 
-    def set_image(self, image_data: np.ndarray) -> None:
-        """Set the image to be displayed.
+    # def set_canvas_size(self, width: int, height: int):
+    #     self.canvas_width, self.canvas_height = width, height
 
-        Args:
-            image_data (np.ndarray): Image data as a NumPy array.
-        """
-        self.image_data = image_data
-        self.canvas_entity.set_image(image_data)
-
-        self.update()
-
-    def pixel_to_gl_coords(self, pixel_coords: QtCore.QPoint) -> Tuple[float, float]:
+    def diaplay_to_gl_coords(self, pixel_coords: QtCore.QPoint) -> Tuple[float, float]:
         """Convert pixel coordinates to OpenGL coordinates.
 
         Args:
@@ -258,14 +297,17 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
     def initializeGL(self):
         """Initialize the OpenGL context.
         """
+        # Enable multi-sampling for smoother rendering
+        GL.glEnable(GL.GL_MULTISAMPLE)
+
         # Set the clear color for the OpenGL context
         GL.glClearColor(0.1, 0.1, 0.1, 1.0)
 
+        # Initialize the shader program and canvas entity.
         self.shader_program = ViewerShaderProgram(self)
-        self.canvas_entity = CanvasEntity()
+        self.canvas_entity = CanvasEntity(self, self.canvas_width, self.canvas_height)
 
-        # Set the image to display
-        self.set_image(self.image_data)
+        # Adjust the view to fit the content.
         self.fit_in_view()
 
     def paintGL(self) -> None:
@@ -345,29 +387,20 @@ class MainUI(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-
         image_path = r'example_image.1001.jpg'
-        image_path2 = r'example_image.1002.jpg'
 
-        image_data = cv2.imread(image_path)
-        self.image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
-        # self.image = self.image.astype(np.float32) / 255.0
-
-        image_data2 = cv2.imread(image_path2)
-        self.image_data2 = cv2.cvtColor(image_data2, cv2.COLOR_BGR2RGB)
-        self.image_data2 = self.image_data2.astype(np.float32) / 255.0
+        image = cv2.imread(image_path)
+        self.image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         self._setup_ui()
         self._setup_signal_connections()
 
     def _setup_ui(self):
-        self.viewer = ImageViewerGLWidget(self, image_data=self.image_data)
-        self.switch_button = QtWidgets.QPushButton("Switch Image", self)
-        self.switch_button.clicked.connect(self.switch_image)
+        self.viewer = ImageViewerGLWidget(self.image, self)
+        self.current = self.image
 
         self.main_layout = QtWidgets.QGridLayout()
         self.main_layout.addWidget(self.viewer, 0, 0)
-        self.main_layout.addWidget(self.switch_button, 1, 0)
         self.setLayout(self.main_layout)
 
         self.shape = ShapeEntity(points=[(0.0, 0.0)])
@@ -376,19 +409,12 @@ class MainUI(QtWidgets.QWidget):
 
     def _setup_signal_connections(self):
         self.viewer.left_mouse_pressed.connect(self.store_start_pos)
-        # self.viewer.left_mouse_released.connect(self.draw_line)
 
     def store_start_pos(self, event: QtGui.QMouseEvent):
-        self.line_start = self.viewer.pixel_to_gl_coords(event.pos())
+        self.line_start = self.viewer.diaplay_to_gl_coords(event.pos())
 
         self.shape.add_point(self.line_start)
         self.viewer.update()
-
-    def switch_image(self):
-        if np.array_equal(self.viewer.image_data, self.image_data):
-            self.viewer.set_image(self.image_data2)
-        else:
-            self.viewer.set_image(self.image_data)
 
 if __name__ == "__main__":
 

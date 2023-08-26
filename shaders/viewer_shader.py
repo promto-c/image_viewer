@@ -1,7 +1,6 @@
 from pathlib import Path
-from typing import Tuple
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from qtpy import QtCore, QtGui, QtWidgets
 
 import numpy as np
 

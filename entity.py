@@ -1,18 +1,24 @@
-from typing import Any, Dict, Tuple, List, Union, TypeVar, Generic
-from OpenGL import GL
-import numpy as np
-
-from numbers import Number
-
-from collections import defaultdict
+# Standard Library Imports
+# ------------------------
+import copy
 from functools import wraps
+from numbers import Number
+import numpy as np
+from typing import Any, Dict, Tuple, List, Union, Type, Optional, TYPE_CHECKING
 
-from dataclasses import dataclass, field
+# Third Party Imports
+# -------------------
+from OpenGL import GL
 
-import ctypes
+# Local Imports
+# -------------
+from utils.image_utils import ImageSequence
 
-from shaders.viewer_shader import ViewerShaderProgram
+if TYPE_CHECKING:
+    from viewer import ImageViewerGLWidget
 
+# VBO
+# ---
 def create_vbo(data):
     vbo = GL.glGenBuffers(1)
     GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
@@ -51,14 +57,13 @@ class Texture2D:
         np.dtype('float32'): GL.GL_RGB32F,
     }
 
-    def __init__(self, image_data: np.ndarray):
+    def __init__(self, width, height):
         # Get the height and width of the image
-        self.height, self.width, _channel = image_data.shape
+        self.width = width
+        self.height = height
 
         # Create an OpenGL texture ID and bind the texture
         self.id = GL.glGenTextures(1)
-
-        self.set_image(image_data)
 
     def __enter__(self):
         self.bind()
@@ -75,13 +80,29 @@ class Texture2D:
             self.release()
             return result
         return wrapper
+    
+    def set_width(self, width):
+        self.width = width
+
+    def set_height(self ,height):
+        self.height = height
+    
+    def set_texture_size(self, width, height):
+        self.set_width(width)
+        self.set_height(height)
+
+    def get_texture_size(self):
+        return self.width, self.height
 
     @_use_texture
-    def set_image(self, image_data: np.ndarray):
+    def set_image(self, image_data: Optional[np.ndarray] = None):
+        if image_data is None:
+            return
+
         # Set the texture minification/magnification filter
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-        
+
         # Use glTexImage2D to set the image texture in OpenGL
         GL.glTexImage2D(
             GL.GL_TEXTURE_2D,                               # target
@@ -132,11 +153,146 @@ class RectangleMesh:
         # Unbind VAO
         GL.glBindVertexArray(0)
 
+# Property
+# --------
+class PropertyMeta(type):
+    def __getitem__(self, item):
+        return self
+
+class Property(metaclass=PropertyMeta):
+    def __init__(self, type: Type, default_value: Optional[Any] = None, value: Any = None, frame: float = None):
+        self._type = type
+        self._values = {None: default_value}
+
+        self._default_value = default_value
+
+        if value is not None:
+            self.set_value(value, frame)
+
+    def __contains__(self, frame: float) -> bool:
+        """Check if a value is set for the given frame.
+        """
+        return frame in self._values
+
+    def __getitem__(self, frame: float) -> Any:
+        """Get the value for a given frame.
+        """
+        return self.get_value(frame)
+
+    def __setitem__(self, frame: float, value: Any):
+        """Set the value for a given frame.
+        """
+        self.set_value(value, frame)
+
+    @property
+    def type(self) -> Type:
+        return self._type
+
+    def get_value(self, frame: Optional[float] = None) -> Any:
+        # value = self._values.get(frame)
+        if frame not in self._values:
+            self._values[frame] = copy.deepcopy(self._default_value)
+
+        return self._values[frame]
+
+    def set_value(self, value, frame: Optional[float] = None):
+        self._values[frame] = value
+
+    def is_key(self, frame: float) -> bool:
+        """Check if a specific frame is a keyframe.
+        """
+        return frame in self._values
+
+    def is_animated(self):
+        return len(self.keys()) > 1
+
+    def num_keys(self):
+        return len(self.keys())
+
+    def keys(self) -> List[float]:
+        """Get a list of all frames that have key values or changes.
+        """
+        keys = list(self._values.keys())
+        keys.remove(None)
+
+        return keys
+
+    def delete_value(self, frame: float) -> bool:
+        """Delete the value for a given frame.
+        """
+        if frame in self._values:
+            del self._values[frame]
+            return True
+        return False
+        
+    def range(self) -> Tuple[Optional[float], Optional[float]]:
+        """Get the range of keyframes as (first, last). If no keyframes, return (None, None).
+        """
+        if not self.keys():
+            return (None, None)
+        return (min(self.keys()), max(self.keys()))
+
+    def reset(self, value: Optional[Any] = None):
+        """Reset the property to the given value and the is_animated flag to its initial state.
+        If no value is provided, use the default value.
+        """
+        self._values = {None: value or self._values.get(None)}
+
+class Properties:
+    def __init__(self, **kwargs):
+        self._props = {}
+        self.add(**kwargs)
+
+    def add(self, **kwargs):
+        for key, value in kwargs.items():
+            if not isinstance(value, Property):
+                raise ValueError(f"Expected a Property instance for key '{key}', got {type(value)}")
+            self._props[key] = value
+
+    def __getattr__(self, key):
+        return self._props.get(key)
+
+    def __setattr__(self, key, value):
+        if key in ['_props']:
+            super().__setattr__(key, value)
+        else:
+            self._props[key] = value
+
+    def get_property_names(self) -> List[str]:
+        """Returns the names of all properties."""
+        return list(self._props.keys())
+
+    def has_property(self, prop_name: str) -> bool:
+        """Checks if a particular property exists."""
+        return prop_name in self._props
+
+    def remove_value (self, prop_name: str):
+        """Removes a property."""
+        if prop_name in self._props:
+            del self._props[prop_name]
+
+    def get_property(self, prop_name: str) -> Optional[Property]:
+        """Fetches a Property object by name."""
+        return self._props.get(prop_name)
+
+    def set_property(self, prop_name: str, prop: Property):
+        """Sets a Property object by name."""
+        self._props[prop_name] = prop
+
+    def property_types(self) -> Dict[str, Type]:
+        """Returns a dictionary mapping property names to their types."""
+        return {name: prop.type for name, prop in self._props.items()}
+
+# Entity
+# ------
 class Entity:
+
+    props = Properties()
+
     def __init__(self):
         pass
 
-    def render(self, frame: Union[float, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
+    def render(self, frame: Union[float, None], viewer: 'ImageViewerGLWidget'):
         raise NotImplementedError("Subclasses must implement the render method.")
 
 class LayerEntity(Entity):
@@ -144,10 +300,10 @@ class LayerEntity(Entity):
         self.transformation_matrix = np.eye(4)
         self.children: List[Entity] = list()
 
-    def render(self, frame: Union[float, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
+    def render(self, frame: Union[float, None], viewer: 'ImageViewerGLWidget'):
         # Apply the transformation matrix to the children
         for child in self.children:
-            child.render(frame, shader_program)
+            child.render(frame, viewer.shader_program)
 
     def add_child(self, child):
         self.children.append(child)
@@ -165,101 +321,56 @@ class LayerEntity(Entity):
     def get_transformation_matrix(self):
         return self.transformation_matrix
 
-# class LineEntity(Entity):
-#     def __init__(self, line_start, line_end, line_width=2.0, line_color=(1.0, 0.0, 0.0)):
-#         self.line_start = line_start
-#         self.line_end = line_end
-#         self.line_width = line_width
-#         self.line_color = line_color
-
-#     def render(self):
-#         # Set the line width to the calculated pixel size
-#         GL.glLineWidth(self.line_width)
-
-#         # Draw the line
-#         GL.glColor3f(*self.line_color)
-#         GL.glBegin(GL.GL_LINES)
-#         GL.glVertex2f(*self.line_start)
-#         GL.glVertex2f(*self.line_end)
-#         GL.glEnd()
-
-#         # Reset the color to white
-#         GL.glColor3f(1.0, 1.0, 1.0)
-
-
-# property_to_type_dict = dict(
-#     id=int, 
-#     x=float, 
-#     y=float, 
-#     error=float, 
-#     is_keyframe=bool,
-# )
-# TrackPoint = create_class_that_contains_properties(name='TrackPoint', property_to_type_dict=property_to_type_dict)
-
-# track_point = TrackPoint(id=1, x=1.2, y=1.1, error=0.25, is_keyframe=False)
-
-# print(track_point.x)
-
-T = TypeVar('T')
-
-class PropertyMeta(type):
-    def __getitem__(self, item):
-        return self
-
-class Property(Generic[T], metaclass=PropertyMeta):
-    def __init__(self, type: T, value: Union[T, None] = None, 
-                 frame: float = None, is_animated: bool = False):
-        self.type = type
-        self.is_animated = is_animated
-        self.values = {frame: value}
-
-    def get_value(self, frame: float = None) -> T:
-        # TODO: Get interpolate value if it animate and frame not in dict 
-        return self.values.get(frame)
-
-    def set_value(self, value: T, frame: float = None):
-        self.values[frame] = value
-
-class Properties:
-    def __init__(self, **kwargs):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
 
 class TrackPointEntity(Entity):
 
-    properties = Properties(
-        gl_position = Property(type=Tuple[float, float], is_animated=True),
-        color = Property(type=Tuple[float, float, float, float]),
-    )
-
-    def __init__(self, frame: float, gl_position: Tuple[float, float], color=(0.0, 1.0, 0.0, 1.0), point_size=5.0):
+    def __init__(self, position: Tuple[float, float], frame: float, color=(0.0, 1.0, 0.0, 1.0), point_size=5.0):
         """Initializes the tracker entity.
         """
-        # self.properties = TrackPointProperties()
-        self.properties.gl_position.set_value(frame, gl_position)
-        self.properties.color.set_value(color)
+        self.props = Properties(
+            position = Property(
+                type=Tuple[float, float], 
+                default_value=(0.0, 0.0), 
+            ),
+            color = Property(
+                type=Tuple[float, float, float, float], 
+                default_value=(0.0, 0.0, 0.0, 1.0),
+            ),
+            error = Property(
+                type=float,
+            ),
+        )
+
+        self.props.position.set_value(position, frame)
+        self.props.color.set_value(color)
 
         # TODO: This should be global appearance's property instead of entity's property
         self.point_size = point_size
 
-    def render(self, frame: Union[float, None], shader_program: ViewerShaderProgram):
+    def render(self, frame: Union[float, None], viewer: 'ImageViewerGLWidget'):
         
-        gl_position = self.properties.gl_position.get_value(frame)
-        if gl_position is None:
+        position = self.props.position.get_value(frame)
+
+        if position is None:
             return
 
-        color = self.properties.color.get_value()
+        color = self.props.color.get_value()
+        gl_position = viewer.canvas_to_gl_coords(position)
 
-        shader_program.set_color(*color)
+        viewer.shader_program.set_color(*color)
         vbo = draw_points([gl_position], point_size=self.point_size)
 
         cleanup_vbo(vbo)
 
-    def set_position(self, frame, gl_position: Tuple[float, float]):
-        self.frame_to_point[frame] = gl_position
+    def set_position(self, position: Tuple[float, float], frame):
+        self.props.position.set_value(position, frame)
+
+    def get_position(self, frame):
+        return self.props.position.get_value(frame)
 
 class TrackPointsEntity(Entity):
-    def __init__(self, track_points: List[Tuple[float, float]], point_size=5.0, track_color=(0.0, 1.0, 0.0, 1.0)):
+
+    def __init__(self, point_size=5.0, track_color=(0.0, 1.0, 0.0, 0.5)):
         """
         Initializes the tracker entity.
 
@@ -268,24 +379,66 @@ class TrackPointsEntity(Entity):
         - point_size (float): Size of the tracked points when rendered.
         - track_color (Tuple[float, float, float, float]): Color of the track.
         """
-        self.track_points = np.array(track_points)
+        self.props = Properties(
+            color = Property(
+                type=Tuple[float, float, float, float], 
+                default_value=(0.0, 0.0, 0.0, 1.0),
+            ),
+            track_point_entities = Property(
+                type=List[TrackPointEntity],
+                default_value=list(),
+            ),
+            points = Property(
+                type=List[Tuple[float, float]],
+                default_value=list(),
+            ),
+            track_points = Property(
+                type=Dict[int, Property[Tuple[float, float]]],
+                default_value=dict(),
+            ),
+        )
+        
         self.point_size = point_size
         self.track_color = track_color
-        self.frame_to_points: Dict[Number, List[Tuple[float, float]]] = defaultdict(list)
 
-    def render(self, frame: Union[Number, None], shader_program: ViewerShaderProgram):
-        if frame not in self.frame_to_points:
+    def render(self, frame: Union[float, None], viewer: 'ImageViewerGLWidget'):
+
+        if frame not in self.props.points:
             return
 
-        points = self.frame_to_points[frame]
-        shader_program.set_color(*self.track_color)
-        vbo = draw_points(points, point_size=self.point_size)
+        points = self.props.points[frame]
+        gl_points = [viewer.canvas_to_gl_coords(point) for point in points]
+
+        viewer.shader_program.set_color(*self.track_color)
+
+        vbo = draw_points(gl_points, point_size=self.point_size)
 
         cleanup_vbo(vbo)
 
-    def add_track_point(self, frame, point: Tuple[float, float]):
-        self.frame_to_points[frame].append(point)
+    def add_track_points(self, frame, points: List[Tuple[float, float]]):
 
+        id_to_track_point = {
+            id(point): Property(type=Tuple[float, float], default_value=(None, None), value=point, frame=frame) for point in points
+        }
+
+        self.props.track_points.set_value(id_to_track_point)
+
+        self.props.points[frame].extend(points)
+
+        return id_to_track_point
+
+    def update_track_points(self, frame, update_id_to_position: Dict[int, Tuple[float, float]]):
+
+        id_to_track_point = self.props.track_points.get_value()
+
+        for track_point_id, position in update_id_to_position.items():
+            id_to_track_point[track_point_id][frame] = position
+
+        self.props.points[frame].extend(list(update_id_to_position.values()))
+
+    # def add_track_point(self, frame, point: Tuple[float, float]):
+    #     self.props.points[frame].append(point)
+    #     self.props.gl_points[frame].append(self.viewer.canvas_to_gl_coords(point))
 
 class ShapeEntity(Entity):
     def __init__(self, points: List[float], line_width=1.0, line_color=(1.0, 0.0, 0.0, 0.0), fill_color=None, is_bspline=True, degree=3, knot_vector=None):
@@ -324,7 +477,7 @@ class ShapeEntity(Entity):
         self.show_control_points = not self.show_control_points
 
 
-    def render(self, frame: Union[Number, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):
+    def render(self, frame: Union[float, None], viewer: 'ImageViewerGLWidget'):
         # Ensure blending and depth testing are disabled for 2D rendering
         # GL.glDisable(GL.GL_BLEND)
         GL.glDisable(GL.GL_DEPTH_TEST)
@@ -336,16 +489,16 @@ class ShapeEntity(Entity):
             curve_points = self.points
 
         if self.fill_color:
-            self._render_filled_shape(curve_points, shader_program)
+            self._render_filled_shape(curve_points, viewer.shader_program)
 
-        self._render_outline(curve_points, shader_program)
+        self._render_outline(curve_points, viewer.shader_program)
         
         if self.show_control_points:
-            self._render_control_points(shader_program)
+            self._render_control_points(viewer.shader_program)
 
     def _render_filled_shape(self, curve_points, shader_program):
         vbo = create_vbo(curve_points)
-        # GL.glColor3f(*self.fill_color)
+
         shader_program.set_color(*self.fill_color)
         
         draw_with_vbo(vbo, GL.GL_POLYGON, len(curve_points))
@@ -355,7 +508,7 @@ class ShapeEntity(Entity):
 
         vbo = create_vbo(curve_points)
         GL.glLineWidth(self.line_width)
-        # GL.glColor3f(*self.line_color)
+
         shader_program.set_color(*self.line_color)
 
         draw_with_vbo(vbo, GL.GL_LINE_LOOP, len(curve_points))
@@ -387,28 +540,30 @@ class ShapeEntity(Entity):
             self.knot_vector = np.append(self.knot_vector, new_knot_value)
 
 class CanvasEntity(Entity):
-    def __init__(self):
+    def __init__(self, viewer: 'ImageViewerGLWidget', width: int, height: int):
         super().__init__()
+        self.viewer = viewer
+        self.width = width
+        self.height = height
+
         self.rectangle_mesh = RectangleMesh()
-        self.vao = self.rectangle_mesh.vao
-        self.texture = None
+        self.texture = Texture2D(self.width, self.height)
 
-    def set_image(self, image_data: np.ndarray = None):
-        if self.texture is None:
-            self.texture = Texture2D(image_data) if image_data is not None else None
-        else:
-            self.texture.set_image(image_data)
+    def set_size(self, width: int, height: int):
+        self.width = width
+        self.height = height
 
-    # TODO: Refacor to this form
-    #       `def render(self, frame: Union[float, None] = None, shader_program: Union[ViewerShaderProgram, None] = None):``
-    def render(self, shader_program):
-        if self.texture is None:
-            return
-        
-        shader_program.use_texture()
+    def set_image(self, image: np.ndarray = None):
+        self.image = image
+        self.height, self.width = self.image.shape[:2]
+        self.texture.set_texture_size(self.width, self.height)
+        self.texture.set_image(self.image)
+
+    def render(self):
+        self.viewer.shader_program.use_texture()
 
         # Bind the texture to the current active texture unit
         with self.texture:
-            GL.glBindVertexArray(self.vao)
+            GL.glBindVertexArray(self.rectangle_mesh.vao)
             GL.glDrawArrays(GL.GL_QUADS, 0, 4)
             GL.glBindVertexArray(0)

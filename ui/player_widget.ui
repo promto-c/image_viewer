@@ -13,6 +13,9 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true"/>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
     <number>0</number>
@@ -84,23 +87,89 @@
              <number>0</number>
             </property>
             <item>
-             <widget class="QPushButton" name="prefetch_button">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Prefetch</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QProgressBar" name="prefetch_progress_bar">
-              <property name="value">
-               <number>24</number>
-              </property>
+             <widget class="QWidget" name="widget_14" native="true">
+              <layout class="QHBoxLayout" name="horizontalLayout_13">
+               <property name="spacing">
+                <number>0</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QPushButton" name="prefetch_button">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">QPushButton {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string>Prefetch</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QProgressBar" name="prefetch_progress_bar">
+                 <property name="value">
+                  <number>24</number>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="num_cores_spin_box">
+                 <property name="styleSheet">
+                  <string notr="true">QSpinBox {
+  border-radius: 0px;
+}</string>
+                 </property>
+                 <property name="buttonSymbols">
+                  <enum>QAbstractSpinBox::NoButtons</enum>
+                 </property>
+                 <property name="value">
+                  <number>8</number>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="cpu_button">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>22</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">QPushButton {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 0px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
             <item>
@@ -120,9 +189,6 @@
           </widget>
          </item>
          <item>
-          <widget class="QWidget" name="widget_9" native="true"/>
-         </item>
-         <item>
           <widget class="QWidget" name="widget_7" native="true">
            <layout class="QHBoxLayout" name="horizontalLayout">
             <property name="leftMargin">
@@ -138,36 +204,141 @@
              <number>0</number>
             </property>
             <item>
-             <widget class="QDoubleSpinBox" name="lift_spin_box">
-              <property name="minimum">
-               <double>-1.000000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>1.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
+             <widget class="QWidget" name="widget_9" native="true">
+              <layout class="QHBoxLayout" name="horizontalLayout_8">
+               <property name="spacing">
+                <number>0</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QPushButton" name="gain_button">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>22</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="toolTip">
+                  <string>Gain</string>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">QPushButton {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QDoubleSpinBox" name="gain_spin_box">
+                 <property name="toolTip">
+                  <string>Gain value</string>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">QDoubleSpinBox {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}</string>
+                 </property>
+                 <property name="buttonSymbols">
+                  <enum>QAbstractSpinBox::NoButtons</enum>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>1.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
             <item>
-             <widget class="QDoubleSpinBox" name="gamma_spin_box">
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-              <property name="value">
-               <double>1.000000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QDoubleSpinBox" name="gain_spin_box">
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-              <property name="value">
-               <double>1.000000000000000</double>
-              </property>
+             <widget class="QWidget" name="widget_10" native="true">
+              <layout class="QHBoxLayout" name="horizontalLayout_9">
+               <property name="spacing">
+                <number>0</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QPushButton" name="gamma_button">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>22</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="toolTip">
+                  <string>Gamma</string>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">QPushButton {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QDoubleSpinBox" name="gamma_spin_box">
+                 <property name="toolTip">
+                  <string>Gamma value</string>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">QDoubleSpinBox {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}</string>
+                 </property>
+                 <property name="buttonSymbols">
+                  <enum>QAbstractSpinBox::NoButtons</enum>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>1.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
            </layout>
@@ -250,8 +421,15 @@
                 <height>16777215</height>
                </size>
               </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 1px;
+}</string>
+              </property>
               <property name="text">
-               <string>◁</string>
+               <string/>
               </property>
              </widget>
             </item>
@@ -269,8 +447,15 @@
                 <height>16777215</height>
                </size>
               </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+  border-radius: 0;
+  border-left:1px;
+  border-right: 1px;
+}</string>
+              </property>
               <property name="text">
-               <string>◻</string>
+               <string/>
               </property>
              </widget>
             </item>
@@ -288,8 +473,15 @@
                 <height>16777215</height>
                </size>
               </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px;
+}</string>
+              </property>
               <property name="text">
-               <string>▷</string>
+               <string/>
               </property>
              </widget>
             </item>
@@ -314,10 +506,63 @@
             <property name="bottomMargin">
              <number>0</number>
             </property>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="widget_11" native="true">
+           <layout class="QHBoxLayout" name="horizontalLayout_10">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="playback_speed_button">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0px;
+}</string>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+            </item>
             <item>
              <widget class="QComboBox" name="playback_speed_combo_box">
+              <property name="minimumSize">
+               <size>
+                <width>48</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QComboBox {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}</string>
+              </property>
               <property name="editable">
                <bool>true</bool>
+              </property>
+              <property name="maxCount">
+               <number>99</number>
               </property>
               <item>
                <property name="text">
@@ -353,10 +598,63 @@
              <number>0</number>
             </property>
             <item>
-             <widget class="QSpinBox" name="start_frame_spin_box">
-              <property name="maximum">
-               <number>65535</number>
-              </property>
+             <widget class="QWidget" name="widget_12" native="true">
+              <layout class="QHBoxLayout" name="horizontalLayout_11">
+               <property name="spacing">
+                <number>0</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QPushButton" name="start_frame_button">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>22</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">QPushButton {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="start_frame_spin_box">
+                 <property name="styleSheet">
+                  <string notr="true">QSpinBox {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}</string>
+                 </property>
+                 <property name="buttonSymbols">
+                  <enum>QAbstractSpinBox::NoButtons</enum>
+                 </property>
+                 <property name="maximum">
+                  <number>65535</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
             <item>
@@ -367,10 +665,63 @@
              </widget>
             </item>
             <item>
-             <widget class="QSpinBox" name="end_frame_spin_box">
-              <property name="maximum">
-               <number>65535</number>
-              </property>
+             <widget class="QWidget" name="widget_13" native="true">
+              <layout class="QHBoxLayout" name="horizontalLayout_12">
+               <property name="spacing">
+                <number>0</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QSpinBox" name="end_frame_spin_box">
+                 <property name="styleSheet">
+                  <string notr="true">QSpinBox {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}</string>
+                 </property>
+                 <property name="buttonSymbols">
+                  <enum>QAbstractSpinBox::NoButtons</enum>
+                 </property>
+                 <property name="maximum">
+                  <number>65535</number>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="end_frame_button">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>22</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">QPushButton {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 0px;
+}</string>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
            </layout>
@@ -396,6 +747,14 @@
             </property>
             <item>
              <widget class="QSpinBox" name="current_frame_spin_box">
+              <property name="styleSheet">
+               <string notr="true">QSpinBox {
+  border-radius: 0px;
+}</string>
+              </property>
+              <property name="buttonSymbols">
+               <enum>QAbstractSpinBox::NoButtons</enum>
+              </property>
               <property name="maximum">
                <number>65535</number>
               </property>
