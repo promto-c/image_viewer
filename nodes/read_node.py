@@ -57,10 +57,6 @@ class ReadNodePanel(QtWidgets.QWidget):
 
         self.file_edit = QtWidgets.QLineEdit(self)
 
-        # NOTE: Test path
-        self.file_edit.setText('example_exr_plates\C0653.####.exr')
-
-        # self.open_action = self.file_edit.addAction(self.tabler_icon.folder_open , QtWidgets.QLineEdit.ActionPosition.TrailingPosition)
         self.open_button = QtWidgets.QPushButton(self, icon=self.tabler_icon.dots_vertical)
         self.open_button.setFixedWidth(12)
 
@@ -87,9 +83,17 @@ class ReadNodePanel(QtWidgets.QWidget):
     # ----------------
     def show_dialog(self):
 
-        self.file_edit.text()
+        # Generate the filter string
+        media_file_types = ' '.join(f'*.{ext}' for ext in ImageSequence.file_type_handlers.keys())
+        filter_string = f'Media Files ({media_file_types});;EXR Files (*.exr);;DPX Files (*.dpx);;All Files (*)'
 
-        file, _ = QtWidgets.QFileDialog.getOpenFileName(self,"Select Media", self.file_edit.text(), "EXR Files (*.exr);;All Files (*)")
+        file, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            caption="Select Media",
+            dir=self.file_edit.text(),
+            filter=filter_string
+        )
+
         if not file:
             return
         
@@ -122,9 +126,13 @@ class ReadNode(Node):
         self.vector_entities = list()
 
         self.panel.file_edit.textChanged.connect(self.set_image)
-        self.set_image(self.panel.file_edit.text())
+
+        if self.panel.file_edit.text():
+            self.set_image(self.panel.file_edit.text())
 
     def frame_range(self):
+        if not self.image:
+            return
         return self.image.frame_range()
 
     def set_image(self, input_path):
@@ -134,11 +142,11 @@ class ReadNode(Node):
         self.player = player
 
     def get_image_data(self, frame):
-        # TODO: get image data
+        if not self.image:
+            return
+
         image_data = self.image.get_image_data(frame)
         return image_data
-
-        # self.image_sequence = ImageSequence(input_path)
 
     def create_panel(self):
         return ReadNodePanel()

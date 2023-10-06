@@ -42,17 +42,16 @@ def read_exr(image_path: str) -> np.ndarray:
     # Read all channels at once
     channel_data = exr_file.channels(channel_keys, Imath.PixelType(Imath.PixelType.FLOAT))
 
-    # Create an empty NumPy array to store the image data
-    image_data = np.zeros((height, width, len(channel_keys)), dtype=np.float32)
+    # Using list comprehension to transform the channel data
+    channel_data = [
+        np.frombuffer(data, dtype=np.float32).reshape(height, width)
+        for data in channel_data
+    ]
 
-    # Populate the image data array
-    for i, data in enumerate(channel_data):
-        # Retrieve the pixel values for the channel
-        pixels = np.frombuffer(data, dtype=np.float32)
-        # Reshape the pixel values to match the image dimensions and store them in the image data array
-        image_data[:, :, i] = pixels.reshape((height, width))
+    # Convert to NumPy array only if necessary
+    image_data = np.array(channel_data)
 
-    return image_data
+    return image_data.transpose(1, 2, 0)
 
 def read_dpx_header(file):
     headers = {}
@@ -99,7 +98,7 @@ def read_dpx(image_path: str) -> np.ndarray:
 
 class ImageSequence:
 
-    _file_type_handlers = {
+    file_type_handlers = {
         'exr': read_exr,
         'dpx': read_dpx,
     }
@@ -118,10 +117,10 @@ class ImageSequence:
         file_extension = file_path.split('.')[-1].lower()
         
         # Lookup read method for given file extension
-        read_method = self._file_type_handlers.get(file_extension)
+        read_method = self.file_type_handlers.get(file_extension)
 
         if not read_method:
-            supported_types = ", ".join(self._file_type_handlers.keys())
+            supported_types = ", ".join(self.file_type_handlers.keys())
             raise ValueError(f"Unsupported file type: {file_extension}. Supported types are: {supported_types}")
 
         return read_method(file_path)

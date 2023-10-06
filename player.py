@@ -184,7 +184,7 @@ class PlayerWidget(QtWidgets.QWidget):
     def set_image(self, image: Union[ImageSequence, Node] = None):
         self.image = image
 
-        if isinstance(image, (ImageSequence, Node)):
+        if isinstance(image, (ImageSequence, Node)) and self.image.frame_range():
             self.first_frame, self.last_frame = self.image.frame_range()
         else:
             self.first_frame, self.last_frame = 0, 0
@@ -219,7 +219,7 @@ class PlayerWidget(QtWidgets.QWidget):
         self.prefetch_progress_bar.setMaximum(total_frames)
         self.prefetch_progress_bar.setValue(0)
 
-        for frame in range(start_frame, end_frame + 1):
+        for frame in range(int(start_frame), int(end_frame) + 1):
             # Create a worker and pass the read_image function to it
             worker = ImageLoader(self, frame)
             # Start the worker thread

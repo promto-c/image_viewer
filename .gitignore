@@ -154,3 +154,4 @@ cython_debug/
 
 .vscode/settings.json
 example_exr*
+example_dpx*
