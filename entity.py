@@ -47,12 +47,14 @@ class Texture2D:
 
     PIXEL_DATA_MAPPING = {
         np.dtype('uint8'): GL.GL_UNSIGNED_BYTE,
+        np.dtype('uint16'): GL.GL_UNSIGNED_BYTE,
         np.dtype('float16'): GL.GL_FLOAT,
         np.dtype('float32'): GL.GL_FLOAT,
     }
 
     TEXTURE_FORMAT_MAPPING = {
         np.dtype('uint8'): GL.GL_RGB,
+        np.dtype('uint16'): GL.GL_RGB,
         np.dtype('float16'): GL.GL_RGB16F,
         np.dtype('float32'): GL.GL_RGB32F,
     }

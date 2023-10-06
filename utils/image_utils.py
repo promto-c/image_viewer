@@ -4,7 +4,7 @@ from numbers import Number
 from functools import lru_cache
 import OpenEXR
 import Imath
-
+import struct
 from utils.path_utils import PathSequence
 
 def read_exr(image_path: str) -> np.ndarray:
@@ -54,7 +54,55 @@ def read_exr(image_path: str) -> np.ndarray:
 
     return image_data
 
+def read_dpx_header(file):
+    headers = {}
+    
+    generic_file_header_format = ">I I 8s I I I I I 100s 24s 100s 200s 200s I 104s"
+    headers['GenericFileHeader'] = struct.unpack(
+        generic_file_header_format, file.read(768)
+    )
+
+    generic_image_header_format = ">H H I I"
+    headers['GenericImageHeader'] = struct.unpack(
+        generic_image_header_format, file.read(12)
+    )
+  
+    return headers
+
+def read_dpx(image_path: str) -> np.ndarray:
+    with open(image_path, "rb") as file:
+
+        meta = read_dpx_header(file)
+        width = meta['GenericImageHeader'][2]
+        height = meta['GenericImageHeader'][3]
+        offset = meta['GenericFileHeader'][1]
+
+        file.seek(offset)
+        raw = np.fromfile(file, dtype=np.int32, count=width*height)
+
+    raw = raw.reshape(height, width)
+
+    # if meta['endianness'] == 'be':
+    raw.byteswap(True)
+
+    image = np.array([raw >> 22, raw >> 12, raw >> 2], dtype=np.uint16)
+    image &= 0x3FF
+
+    # NOTE: to uint8
+    # image = (image >> 2).astype(np.uint8)
+
+    # to float32
+    image = image.astype(np.float32)
+    image /= 0x3FF
+
+    return image.transpose(1, 2, 0)
+
 class ImageSequence:
+
+    _file_type_handlers = {
+        'exr': read_exr,
+        'dpx': read_dpx,
+    }
 
     def __init__(self, input_path: str) -> None:
         self.input_path = input_path
@@ -66,10 +114,17 @@ class ImageSequence:
         self.path_sequence = PathSequence(self.input_path)
 
     @lru_cache(maxsize=400)
-    def read_image(self, file_path: str()):
-        image_data = read_exr(file_path)
+    def read_image(self, file_path: str):
+        file_extension = file_path.split('.')[-1].lower()
+        
+        # Lookup read method for given file extension
+        read_method = self._file_type_handlers.get(file_extension)
 
-        return image_data
+        if not read_method:
+            supported_types = ", ".join(self._file_type_handlers.keys())
+            raise ValueError(f"Unsupported file type: {file_extension}. Supported types are: {supported_types}")
+
+        return read_method(file_path)
 
     def get_image_data(self, frame: Number):
         image_path = self.get_frame_path(frame)
