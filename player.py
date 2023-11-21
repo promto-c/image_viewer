@@ -20,6 +20,8 @@ from utils.path_utils import PROJECT_ROOT
 from utils.conversion_utils import fps_to_interval_msc
 from nodes.node import Node
 
+from widget.double_spin_box import DoubleSpinBoxWidget
+
 PLAYER_WIDGET_UI = PROJECT_ROOT / 'ui/player_widget.ui'
 
 class ImageLoader(QtCore.QRunnable):
@@ -35,6 +37,7 @@ class ImageLoader(QtCore.QRunnable):
         except RuntimeError as e:
             pass
 
+
 class PlayerWidget(QtWidgets.QWidget):
 
     UI = PLAYER_WIDGET_UI
@@ -49,10 +52,7 @@ class PlayerWidget(QtWidgets.QWidget):
     gamma_button: QtWidgets.QPushButton
     lift_button: QtWidgets.QPushButton
 
-    # lift_spin_box: QtWidgets.QDoubleSpinBox
-    gamma_spin_box: QtWidgets.QDoubleSpinBox
-    gain_spin_box: QtWidgets.QDoubleSpinBox
-
+    top_right_layout: QtWidgets.QHBoxLayout
     center_layout: QtWidgets.QVBoxLayout
 
     playback_speed_button: QtWidgets.QPushButton
@@ -101,11 +101,23 @@ class PlayerWidget(QtWidgets.QWidget):
 
         self.tabler_icon = TablerQIcon(opacity=0.8)
 
+        # Widget
+        # ------
+        self.gain_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
+        self.gain_spin_box_widget.setToolTip('Gain')
+        self.gamma_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
+        self.gamma_spin_box_widget.setToolTip('Gamma')
+
     def _setup_ui(self):
         # Setup Main Widget
         # -----------------
         self.setWindowTitle(self.TITLE)
         self.setWindowIcon(TablerQIcon.player_play)
+
+        # Top Right
+        # ---------
+        self.top_right_layout.addWidget(self.gain_spin_box_widget)
+        self.top_right_layout.addWidget(self.gamma_spin_box_widget)
 
         # Set the focus policy to accept focus, and set the initial focus
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
@@ -127,8 +139,8 @@ class PlayerWidget(QtWidgets.QWidget):
         # ---------
         self.cpu_button.setIcon(self.tabler_icon.cpu_2)
 
-        self.gain_button.setIcon(self.tabler_icon.flip.brightness_half)
-        self.gamma_button.setIcon(self.tabler_icon.contrast)
+        self.gain_spin_box_widget.setIcon(self.tabler_icon.flip.brightness_half)
+        self.gamma_spin_box_widget.setIcon(self.tabler_icon.contrast)
 
         self.play_backward_button.setIcon(self.tabler_icon.flip.player_play)
         self.stop_button.setIcon(self.tabler_icon.player_stop)
@@ -153,8 +165,8 @@ class PlayerWidget(QtWidgets.QWidget):
         self.stop_button.clicked.connect(self.stop_playback)
 
         # self.lift_spin_box.valueChanged.connect(self.set_lift)
-        self.gamma_spin_box.valueChanged.connect(self.set_gamma)
-        self.gain_spin_box.valueChanged.connect(self.set_gain)
+        self.gamma_spin_box_widget.valueChanged.connect(self.set_gamma)
+        self.gamma_spin_box_widget.valueChanged.connect(self.set_gain)
 
         self.current_frame_spin_box.valueChanged.connect(self.set_frame)
         self.frame_slider.valueChanged.connect(self.set_frame)
@@ -258,7 +270,7 @@ class PlayerWidget(QtWidgets.QWidget):
     def set_frame(self, frame_number: int):
         self.current_frame = frame_number
 
-        self.current_frame_spin_box.setValue(self.current_frame)
+        self.current_frame_spin_box.setValue(int(self.current_frame))
         self.frame_slider.setValue(self.current_frame)
 
         self.viewer.set_frame(self.current_frame)

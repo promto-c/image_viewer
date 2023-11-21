@@ -61,6 +61,13 @@ def read_dpx_header(file):
         generic_file_header_format, file.read(768)
     )
 
+    # Determine endianness based on magic number
+    magic_number = headers['GenericFileHeader'][0]
+    if magic_number == 0x53445058:
+        headers['endianness'] = 'be'  # big-endian
+    elif magic_number == 0x58504453:
+        headers['endianness'] = 'le'  # little-endian
+
     generic_image_header_format = ">H H I I"
     headers['GenericImageHeader'] = struct.unpack(
         generic_image_header_format, file.read(12)
@@ -81,8 +88,8 @@ def read_dpx(image_path: str) -> np.ndarray:
 
     raw = raw.reshape(height, width)
 
-    # if meta['endianness'] == 'be':
-    raw.byteswap(True)
+    if meta['endianness'] == 'be':
+        raw.byteswap(True)
 
     image = np.array([raw >> 22, raw >> 12, raw >> 2], dtype=np.uint16)
     image &= 0x3FF
