@@ -2,7 +2,7 @@ import glob
 from pathlib import Path
 from numbers import Number
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PACKAGE_ROOT = Path(__file__).parent.parent
 
 
 class PathSequence:

@@ -16,13 +16,13 @@ from theme import theme
 from viewer import ImageViewerGLWidget
 
 from utils.image_utils import ImageSequence
-from utils.path_utils import PROJECT_ROOT
+from utils.path_utils import PACKAGE_ROOT
 from utils.conversion_utils import fps_to_interval_msc
 from nodes.node import Node
 
 from widget.double_spin_box import DoubleSpinBoxWidget
 
-PLAYER_WIDGET_UI = PROJECT_ROOT / 'ui/player_widget.ui'
+PLAYER_WIDGET_UI = PACKAGE_ROOT / 'ui/player_widget.ui'
 
 class ImageLoader(QtCore.QRunnable):
     def __init__(self, widget: 'PlayerWidget', frame: int):
