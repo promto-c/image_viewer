@@ -12,8 +12,6 @@ from OpenGL import GL
 
 # Local Imports
 # -------------
-from utils.image_utils import ImageSequence
-
 if TYPE_CHECKING:
     from viewer import ImageViewerGLWidget
 

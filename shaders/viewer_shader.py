@@ -14,8 +14,8 @@ class ViewerShaderProgram(QtGui.QOpenGLShaderProgram):
         super().__init__(parent.context())
 
         # self.shader_program = QtGui.QOpenGLShaderProgram(self.context())
-        self.addShaderFromSourceFile(QtGui.QOpenGLShader.ShaderTypeBit.Vertex, str(VIEWER_VERTEX_SHADER_PATH))
-        self.addShaderFromSourceFile(QtGui.QOpenGLShader.ShaderTypeBit.Fragment, str(VIEWER_FRAGMENT_SHADER_PATH))
+        self.addShaderFromSourceFile(QtGui.QOpenGLShader.ShaderTypeBit.Vertex, VIEWER_VERTEX_SHADER_PATH.as_posix())
+        self.addShaderFromSourceFile(QtGui.QOpenGLShader.ShaderTypeBit.Fragment, VIEWER_FRAGMENT_SHADER_PATH.as_posix())
         self.link()
 
         # Set uniform locations
@@ -32,7 +32,7 @@ class ViewerShaderProgram(QtGui.QOpenGLShaderProgram):
         self.bind()
         return self
 
-    def __exit__( self, typ, val, tb ):
+    def __exit__(self, typ, val, tb):
         self.release()
     
     def id(self):

@@ -73,6 +73,8 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.gamma = 1.0
         self.gain = 1.0
 
+        self.pixel_aspect_ratio = 1.0
+
         # Private Attributes
         # ------------------
         self._drag_start = None
@@ -149,14 +151,14 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
     @_use_shader
     def _update_viewer_transformation(self):
         # Calculate the x and y offsets to center the image
-        x_offset = (self._drag_offset[0]/self.width()*2)
-        y_offset = -(self._drag_offset[1]/self.height()*2)
+        x_offset = (self._drag_offset[0] / self.width()) * 2
+        y_offset = -(self._drag_offset[1] / self.height()) * 2
 
-        # Calculate the scaled width and height of the image
-        scaled_width = (self.canvas_width/self.width()) * self._viewer_zoom
-        scaled_height = (self.canvas_height/self.height()) * self._viewer_zoom
+        # Calculate the scaled width and height of the image, adjusting for pixel aspect ratio
+        scaled_width = (self.canvas_width / self.width()) * self._viewer_zoom * self.pixel_aspect_ratio
+        scaled_height = (self.canvas_height / self.height()) * self._viewer_zoom
 
-        # Directly compute the required transformation matrix 
+        # Compute the required transformation matrix
         self.viewer_transformation_matrix = np.array([
             [scaled_width, 0, 0, x_offset],
             [0, scaled_height, 0, y_offset],
@@ -164,7 +166,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             [0, 0, 0, 1]
         ])
 
-        # Update the uniform variable in the shader
+        # Update the shader with the new transformation
         self.shader_program.set_tranformation(self.viewer_transformation_matrix)
 
     @_use_shader
@@ -203,7 +205,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             scaled_height = (self.canvas_height/self.height()) * zoom_delta
 
             # Convert the cursor position from pixel coordinates to OpenGL coordinates
-            gl_pos_x, gl_pos_y = self.diaplay_to_gl_coords(pivot_coords)
+            gl_pos_x, gl_pos_y = self.display_to_gl_coords(pivot_coords)
 
             # Scale the cursor position by the scaled width and height
             gl_pos_x *= scaled_width
@@ -227,10 +229,19 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.canvas_entity.set_image(self.image.get_image_data(frame))
         self.update()
 
+    def set_pixel_aspect_ratio(self, par: float):
+        """Set the pixel aspect ratio for the image display.
+
+        Args:
+            par (float): The new pixel aspect ratio.
+        """
+        self.pixel_aspect_ratio = par
+        self.update()
+
     # def set_canvas_size(self, width: int, height: int):
     #     self.canvas_width, self.canvas_height = width, height
 
-    def diaplay_to_gl_coords(self, pixel_coords: QtCore.QPoint) -> Tuple[float, float]:
+    def display_to_gl_coords(self, pixel_coords: QtCore.QPoint) -> Tuple[float, float]:
         """Convert pixel coordinates to OpenGL coordinates.
 
         Args:
@@ -411,7 +422,7 @@ class MainUI(QtWidgets.QWidget):
         self.viewer.left_mouse_pressed.connect(self.store_start_pos)
 
     def store_start_pos(self, event: QtGui.QMouseEvent):
-        self.line_start = self.viewer.diaplay_to_gl_coords(event.pos())
+        self.line_start = self.viewer.display_to_gl_coords(event.pos())
 
         self.shape.add_point(self.line_start)
         self.viewer.update()
