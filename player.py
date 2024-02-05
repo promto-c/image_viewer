@@ -165,8 +165,8 @@ class PlayerWidget(QtWidgets.QWidget):
         self.stop_button.clicked.connect(self.stop_playback)
 
         # self.lift_spin_box.valueChanged.connect(self.set_lift)
-        self.gamma_spin_box_widget.valueChanged.connect(self.set_gamma)
-        self.gamma_spin_box_widget.valueChanged.connect(self.set_gain)
+        self.gamma_spin_box_widget.valueChanged.connect(self.viewer.set_gamma)
+        self.gain_spin_box_widget.valueChanged.connect(self.viewer.set_gain)
 
         self.current_frame_spin_box.valueChanged.connect(self.set_frame)
         self.frame_slider.valueChanged.connect(self.set_frame)
@@ -274,18 +274,6 @@ class PlayerWidget(QtWidgets.QWidget):
         self.frame_slider.setValue(self.current_frame)
 
         self.viewer.set_frame(self.current_frame)
-
-    def set_lift(self, lift_value: float):
-        self.viewer.lift = lift_value
-        self.viewer.update()
-
-    def set_gamma(self, gamma_value: float):
-        self.viewer.gamma = gamma_value
-        self.viewer.update()
-
-    def set_gain(self, gain_value: float):
-        self.viewer.gain = gain_value
-        self.viewer.update()
 
     def next_frame(self, increment: int = 1):
         if self.current_frame == self.last_frame:

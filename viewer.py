@@ -218,7 +218,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             # Update the drag offset with this translation
             self._drag_offset = (self._drag_offset[0] + translate_x, self._drag_offset[1] + translate_y)
 
-    # Extended Methods
+    # Public Methods
     # ----------------
     def set_frame(self, frame: Number):
         if not isinstance(self.image, (ImageSequence, Node)):
@@ -236,6 +236,18 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             par (float): The new pixel aspect ratio.
         """
         self.pixel_aspect_ratio = par
+        self.update()
+
+    def set_lift(self, lift_value: float):
+        self.lift = lift_value
+        self.update()
+
+    def set_gamma(self, gamma_value: float):
+        self.gamma = gamma_value
+        self.update()
+
+    def set_gain(self, gain_value: float):
+        self.gain = gain_value
         self.update()
 
     # def set_canvas_size(self, width: int, height: int):
