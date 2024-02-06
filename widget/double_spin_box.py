@@ -236,6 +236,8 @@ class DoubleSpinBoxWidget(QtWidgets.QWidget):
         super().__init__(parent)
 
         self.default_value = default_value
+        self.last_value = default_value
+        self.is_default = True
         self.icon = icon
         self.min_value = min_value
         self.max_value = max_value
@@ -248,7 +250,7 @@ class DoubleSpinBoxWidget(QtWidgets.QWidget):
     def _setup_attributes(self):
         self.button = QtWidgets.QPushButton(self.icon, self)
         self.button.setMaximumHeight(22)
-        self.button.setDisabled(True)
+        # self.button.setCheckable(True)
         self.spin_box = AdaptivePaddedDoubleSpinBox(
             default_value=self.default_value, 
             min_value=self.min_value, max_value=self.max_value, 
@@ -266,17 +268,26 @@ class DoubleSpinBoxWidget(QtWidgets.QWidget):
         self.setLayout(layout)
 
     def _setup_signal_connections(self):
-        self.spin_box.valueChanged.connect(self._update_button)
-        self.button.clicked.connect(self.set_default)
+        self.spin_box.valueChanged.connect(self._update_button_and_last_value)
+        self.button.clicked.connect(self.toggle_value)
 
-    def _update_button(self, value: float):
-        self.button.setDisabled(value == self.default_value)
+    def _update_button_and_last_value(self, value: float):
+        # Update the last value whenever the spin box value changes
+        if value != self.default_value:
+            self.last_value = value
+        # self.button.setChecked(value == self.default_value)
+        self.is_default = False  # Once value changes, next click will set to default
 
     def set_default_value(self, default_value):
         self.default_value = default_value
 
-    def set_default(self):
-        self.spin_box.setValue(self.default_value)
+    def toggle_value(self):
+        # If the current state is default, set to the last value
+        # If the current state is not default, set to the default value
+        value = self.last_value if self.is_default else self.default_value
+        self.spin_box.setValue(value)
+
+        self.is_default = not self.is_default
 
     def setIcon(self, icon: QtGui.QIcon):
         self.button.setIcon(icon)
