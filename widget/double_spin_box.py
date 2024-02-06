@@ -212,18 +212,30 @@ class AdaptivePaddedDoubleSpinBox(QtWidgets.QDoubleSpinBox):
             self.lineEdit().setCursorPosition(new_cursor_position)
 
     def eventFilter(self, source: QtWidgets.QLineEdit, event: QtCore.QEvent):
+        """Filters events for the line edit of the spin box, handling middle mouse button interactions.
+        """
+        # Check if the event source is the line edit of the spin box
         if source == self.lineEdit():
+            # Handle middle mouse button press
             if event.type() == QtCore.QEvent.MouseButtonPress and event.buttons() == QtCore.Qt.MiddleButton:
+                # Store the initial mouse press position and the spin box's current value
                 self._mouse_press_pos = event.globalPos()
                 self._mouse_press_value = self.value()
                 return True
+            
+            # Handle mouse move events, but only if the middle mouse button was previously pressed
             elif event.type() == QtCore.QEvent.MouseMove and self._mouse_press_pos is not None:
+                # Calculate the horizontal movement from the initial mouse press position, 
+                # apply a sensitivity factor, and adjust the spin box's value accordingly
                 delta = event.globalPos() - self._mouse_press_pos
                 delta_x = delta.x() / 10.0  # Sensitivity factor
                 new_value = self._mouse_press_value + delta_x * self.singleStep()
                 self.setValue(new_value)
                 return True
+            
+            # Handle middle mouse button release
             elif event.type() == QtCore.QEvent.MouseButtonRelease:
+                # Reset the stored mouse press position to None, indicating the end of the drag operation
                 self._mouse_press_pos = None
                 return True
 
