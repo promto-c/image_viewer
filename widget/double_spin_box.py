@@ -14,7 +14,7 @@ class AdaptivePaddedDoubleSpinBox(QtWidgets.QDoubleSpinBox):
     """
     # Initialization and Setup
     # ------------------------
-    def __init__(self, padding_length_before: int = 1, padding_length_after: int = 1, 
+    def __init__(self, padding_length_before: int = 1, padding_length_after: int = 2, 
                  default_value: float = 0.0, min_value: float = 0.0, max_value: float = 99.99, single_step: float = 0.1, parent: QtWidgets.QWidget = None):
         """Initialize the spin box with specific padding lengths.
 
@@ -36,6 +36,9 @@ class AdaptivePaddedDoubleSpinBox(QtWidgets.QDoubleSpinBox):
         self.setValue(default_value)
         self.setSingleStep(single_step)
         self.lineEdit().installEventFilter(self)
+
+        # Hide the + and - buttons
+        self.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
 
         # Set the maximum number of decimal places
         self.setDecimals(10)
@@ -216,7 +219,7 @@ class AdaptivePaddedDoubleSpinBox(QtWidgets.QDoubleSpinBox):
                 return True
             elif event.type() == QtCore.QEvent.MouseMove and self._mouse_press_pos is not None:
                 delta = event.globalPos() - self._mouse_press_pos
-                delta_x = delta.x() / 100.0  # Sensitivity factor
+                delta_x = delta.x() / 10.0  # Sensitivity factor
                 new_value = self._mouse_press_value + delta_x * self.singleStep()
                 self.setValue(new_value)
                 return True
