@@ -116,8 +116,8 @@ class AdaptivePaddedDoubleSpinBox(QtWidgets.QDoubleSpinBox):
         self.padding_length_before = len(integer_part)
         self.padding_length_after = len(decimal_part) if decimal_part else 0
 
-    # Event Handling or Override Methods
-    # ----------------------------------
+    # Overridden Methods
+    # ------------------
     def setValue(self, value: float) -> None:
         """Set the value of the spinbox, adjusting the padding if necessary.
 
@@ -230,64 +230,115 @@ class AdaptivePaddedDoubleSpinBox(QtWidgets.QDoubleSpinBox):
         return super().eventFilter(source, event)
 
 class DoubleSpinBoxWidget(QtWidgets.QWidget):
-
+    """
+    """
+    # Initialization and Setup
+    # ------------------------
     def __init__(self, default_value: float = 0.0, min_value: float = 0.0, max_value: float = 99.99, single_step: float = 0.1, 
                  icon: QtGui.QIcon = None, parent: QtWidgets.QWidget = None):
+        """Initialize the widget and set up the UI, signal connections, and icon.
+
+        Args:
+            ...
+        """
+        # Initialize the super class
         super().__init__(parent)
 
-        self.default_value = default_value
-        self.last_value = default_value
-        self.is_default = True
-        self.icon = icon
+        # Store the arguments
+        self._default_value = default_value
+        self._recent_value = default_value
+        self._icon = icon
         self.min_value = min_value
         self.max_value = max_value
         self.single_step = single_step
 
-        self._setup_attributes()
-        self._setup_ui()
-        self._setup_signal_connections()
+        # Initialize setup
+        self.__setup_ui()
+        self.__setup_signal_connections()
 
-    def _setup_attributes(self):
-        self.button = QtWidgets.QPushButton(self.icon, self)
-        self.button.setMaximumHeight(22)
-        # self.button.setCheckable(True)
-        self.spin_box = AdaptivePaddedDoubleSpinBox(
-            default_value=self.default_value, 
-            min_value=self.min_value, max_value=self.max_value, 
-            single_step=self.single_step, parent=self)
+    def __setup_ui(self):
+        """Set up the UI for the widget, including creating widgets, layouts, and setting the icons for the widgets.
+        """
+        self.setMaximumHeight(22)
 
-        self.valueChanged = self.spin_box.valueChanged
-
-    def _setup_ui(self):
+        # Create Layouts
+        # --------------
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+
+        # Create Widgets
+        # --------------
+        # Create button
+        self.button = QtWidgets.QPushButton(self._icon, self)
+        
+        # Create spin box
+        self.spin_box = AdaptivePaddedDoubleSpinBox(
+            default_value=self._default_value, 
+            min_value=self.min_value, max_value=self.max_value, 
+            single_step=self.single_step, parent=self)
+
+        # Add Widgets to Layouts
+        # ----------------------
         layout.addWidget(self.button)
         layout.addWidget(self.spin_box)
 
-        self.setLayout(layout)
+    def __setup_signal_connections(self):
+        """Set up signal connections between widgets and slots.
+        """
+        # Connects valueChanged signal of spin box to this widget
+        self.valueChanged = self.spin_box.valueChanged
 
-    def _setup_signal_connections(self):
+        # Connect signals to slots
         self.spin_box.valueChanged.connect(self._update_button_and_last_value)
         self.button.clicked.connect(self.toggle_value)
 
-    def _update_button_and_last_value(self, value: float):
-        # Update the last value whenever the spin box value changes
-        if value != self.default_value:
-            self.last_value = value
-        # self.button.setChecked(value == self.default_value)
-        self.is_default = False  # Once value changes, next click will set to default
+    # Public Methods
+    # --------------
+    def set_default_value(self, value: float):
+        """Dedicated method to set the default value, with added type checking for float.
 
-    def set_default_value(self, default_value):
-        self.default_value = default_value
+        Args:
+            value: New value to set for default_value, expected to be a float.
+
+        Raises:
+            TypeError: If the provided value is not a float.
+        """
+        if not isinstance(value, float):
+            raise TypeError("default_value must be a float")
+        self._default_value = value
 
     def toggle_value(self):
         # If the current state is default, set to the last value
-        # If the current state is not default, set to the default value
-        value = self.last_value if self.is_default else self.default_value
-        self.spin_box.setValue(value)
+        # Else, set to the default value
+        if self.spin_box.value() == self._default_value:
+            self.spin_box.setValue(self._recent_value)
+        else:
+            self.spin_box.setValue(self._default_value)
 
-        self.is_default = not self.is_default
+    # Class Properties
+    # ----------------
+    @property
+    def default_value(self) -> float:
+        """Getter method for default_value."""
+        return self._default_value
+
+    @default_value.setter
+    def default_value(self, value: float):
+        """Setter method for default_value, utilizing the dedicated set_default_value method."""
+        self.set_default_value(value)
+
+    # Private Methods
+    # ---------------
+    def _update_button_and_last_value(self, value: float):
+        # Update the last value whenever the spin box value changes
+        if value != self._default_value:
+            self._recent_value = value
+
+    # Overridden Methods
+    # ------------------
+    def icon(self) -> QtGui.QIcon:
+        self.button.icon()
 
     def setIcon(self, icon: QtGui.QIcon):
         self.button.setIcon(icon)
