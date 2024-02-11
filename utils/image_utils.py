@@ -114,33 +114,39 @@ def read_dpx_12bit(image_path: str) -> np.ndarray:
         file.seek(offset)
         raw = np.fromfile(file, dtype=np.uint16, count=(math.ceil(width * 9/4) *height))
 
+    # raw = raw.reshape(height, width)
+
     if meta['endianness'] == 'be':
         raw.byteswap(True)
 
-    components_per_pixel = 3  # Assuming RGB components
-    len_w = (len(raw))
-    total_components = width * height * components_per_pixel  # Total number of components in the image
-    components = np.zeros((height, int(total_components/height/8), 8), dtype=np.uint16)  # Initialize the output array
-    
-    word_lines = raw.reshape(height, int(len_w/height/6), 6)
+    # Constants for the process
+    components_per_pixel = 3  # RGB components
+    words_per_line = len(raw) / height  # 12 bits/component, 16 bits/word
 
-    components[:, :, 0::8] = (word_lines[:, :, 1] & 0xFFF)[:, :, np.newaxis]  # Add new axis to match 3D shape
-    components[:, :, 1::8] = (((word_lines[:, :, 0] & 0xFF) << 4) | ((word_lines[:, :, 1] >> 12) & 0xF))[:, :, np.newaxis]
-    components[:, :, 2::8] = (((word_lines[:, :, 3] & 0xF) << 8) | ((word_lines[:, :, 0] >> 8) & 0xFF))[:, :, np.newaxis]
-    components[:, :, 3::8] = ((word_lines[:, :, 3] >> 4) & 0xFFF)[:, :, np.newaxis]
-    components[:, :, 4::8] = (word_lines[:, :, 2] & 0xFFF)[:, :, np.newaxis]
-    components[:, :, 5::8] = (((word_lines[:, :, 5] & 0xFF) << 4) | ((word_lines[:, :, 2] >> 12) & 0xF))[:, :, np.newaxis]
-    components[:, :, 6::8] = (((word_lines[:, :, 4] & 0xF) << 8) | ((word_lines[:, :, 5] >> 8) & 0xFF))[:, :, np.newaxis]
-    components[:, :, 7::8] = ((word_lines[:, :, 4] >> 4) & 0xFFF)[:, :, np.newaxis]
+    # Initialize the array to hold the unpacked components
+    components = np.zeros((height, int(width * components_per_pixel)), dtype=np.uint16)
+
+    # Reshape the input words to separate each line and group words for processing
+    word_lines = raw.reshape(height, int(words_per_line))
+
+    # Extract and assign the components using bitwise operations
+    components[:, 0::8] = (word_lines[:, 1::6] & 0xFFF)
+    components[:, 1::8] = (((word_lines[:, 0::6] & 0xFF) << 4) | (word_lines[:, 1::6] >> 12))
+    components[:, 2::8] = (((word_lines[:, 3::6] & 0xF) << 8) | (word_lines[:, 0::6] >> 8))
+    components[:, 3::8] = (word_lines[:, 3::6] >> 4)
+    components[:, 4::8] = (word_lines[:, 2::6] & 0xFFF)
+    components[:, 5::8] = (((word_lines[:, 5::6] & 0xFF) << 4) | (word_lines[:, 2::6] >> 12))
+    components[:, 6::8] = (((word_lines[:, 4::6] & 0xF) << 8) | (word_lines[:, 5::6] >> 8))
+    components[:, 7::8] = ((word_lines[:, 4::6] >> 4) & 0xFFF)
     
-    # Reshape the components array to the shape of the image
+    # Reshape the unpacked components to match the image dimensions and component layout
     image_data = components.reshape(height, width, components_per_pixel)
 
-    # to float32
-    image_data = image_data.astype(np.float32)
-    image_data /= 0x3FF
+    # Convert to float32 and normalize
+    image_data = image_data.astype(np.float32) / 0x0FFF
 
     return image_data
+
 
 class ImageSequence:
 
