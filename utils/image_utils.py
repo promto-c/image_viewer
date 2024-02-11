@@ -103,7 +103,7 @@ def read_dpx(image_path: str) -> np.ndarray:
 
     return image_data.transpose(1, 2, 0)
 
-def read_dpx_12bit(image_path: str) -> np.ndarray:
+def read_dpx_12bit_packed(image_path: str) -> np.ndarray:
     with open(image_path, "rb") as file:
 
         meta = read_dpx_header(file)
@@ -112,6 +112,10 @@ def read_dpx_12bit(image_path: str) -> np.ndarray:
         offset = meta['GenericFileHeader'][1]
 
         file.seek(offset)
+
+        # TODO: test read as uint32
+        # words_per_line = math.ceil(width * 9/8)
+        # raw = np.fromfile(file, dtype=np.uint32, count=words_per_line*height)
         words_per_line = math.ceil(width * 9/4)
         raw = np.fromfile(file, dtype=np.uint16, count=words_per_line*height)
 
@@ -120,9 +124,11 @@ def read_dpx_12bit(image_path: str) -> np.ndarray:
     if meta['endianness'] == 'be':
         raw.byteswap(True)
 
+    # TODO: read num channels from metadata
     # Constants for the process
     components_per_pixel = 3  # RGB components
 
+    # TODO: test read as uint32
     image_data = np.array([
         (word_lines[:, 1::6] & 0xFFF),
         ((word_lines[:, 0::6] & 0xFF) << 4) | (word_lines[:, 1::6] >> 12),
@@ -132,7 +138,7 @@ def read_dpx_12bit(image_path: str) -> np.ndarray:
         ((word_lines[:, 5::6] & 0xFF) << 4) | (word_lines[:, 2::6] >> 12),
         ((word_lines[:, 4::6] & 0xF) << 8) | (word_lines[:, 5::6] >> 8),
         (word_lines[:, 4::6] >> 4 & 0xFFF)
-    ], dtype=np.uint16).transpose(1, 2, 0).reshape(height, width, components_per_pixel )  # Reshape to (height, width, components_per_pixel)
+    ], dtype=np.uint16).transpose(1, 2, 0).reshape(height, width, components_per_pixel)  # Reshape to (height, width, components_per_pixel)
 
     # Convert to float32 and normalize
     image_data = image_data.astype(np.float32)
