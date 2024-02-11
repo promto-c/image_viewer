@@ -26,10 +26,8 @@ def read_exr(image_path: str) -> np.ndarray:
     # Get the image header
     header = exr_file.header()
 
-    # Get the data window (bounding box) of the image
+    # Get the data window (bounding box) and channels of the image
     data_window = header['dataWindow']
-
-    # Get the channels present in the image
     channels = header['channels']
 
     # Calculate the width and height of the image
@@ -48,7 +46,7 @@ def read_exr(image_path: str) -> np.ndarray:
         for data in channel_data
     ]
 
-    # Convert to NumPy array only if necessary
+    # Convert to NumPy array
     image_data = np.array(channel_data)
 
     return image_data.transpose(1, 2, 0)
@@ -97,7 +95,7 @@ def read_dpx(image_path: str) -> np.ndarray:
     # NOTE: to uint8
     # image_data = (image_data >> 2).astype(np.uint8)
 
-    # to float32
+    # Convert to float32 and normalize
     image_data = image_data.astype(np.float32)
     image_data /= 0x3FF
 
@@ -113,9 +111,6 @@ def read_dpx_12bit_packed(image_path: str) -> np.ndarray:
 
         file.seek(offset)
 
-        # TODO: test read as uint32
-        # words_per_line = math.ceil(width * 9/8)
-        # raw = np.fromfile(file, dtype=np.uint32, count=words_per_line*height)
         words_per_line = math.ceil(width * 9/4)
         raw = np.fromfile(file, dtype=np.uint16, count=words_per_line*height)
 
@@ -128,7 +123,10 @@ def read_dpx_12bit_packed(image_path: str) -> np.ndarray:
     # Constants for the process
     components_per_pixel = 3  # RGB components
 
-    # TODO: test read as uint32
+    # Extract 8 components from 6 halfwords (read as 16bit)
+    # word1: B5 B6 B7 B8 B9 B10 B11 B12  G1 G2 G3 G4 G5 G6 G7 G8    G9 G10 G11 G12  R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 R12
+    # word2: BBBBGGGGGGGGGGGG RRRRRRRRRRRR B1 B2 B3 B4
+    # word3: GGGGGGGGGGGGRRRR RRRRRRRRBBBBBBBB
     image_data = np.array([
         (word_lines[:, 1::6] & 0xFFF),
         ((word_lines[:, 0::6] & 0xFF) << 4) | (word_lines[:, 1::6] >> 12),
