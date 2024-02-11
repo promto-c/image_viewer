@@ -112,38 +112,31 @@ def read_dpx_12bit(image_path: str) -> np.ndarray:
         offset = meta['GenericFileHeader'][1]
 
         file.seek(offset)
-        raw = np.fromfile(file, dtype=np.uint16, count=(math.ceil(width * 9/4) *height))
+        words_per_line = math.ceil(width * 9/4)
+        raw = np.fromfile(file, dtype=np.uint16, count=words_per_line*height)
 
-    # raw = raw.reshape(height, width)
+    word_lines = raw.reshape(height, words_per_line)
 
     if meta['endianness'] == 'be':
         raw.byteswap(True)
 
     # Constants for the process
     components_per_pixel = 3  # RGB components
-    words_per_line = len(raw) / height  # 12 bits/component, 16 bits/word
 
-    # Initialize the array to hold the unpacked components
-    components = np.zeros((height, int(width * components_per_pixel)), dtype=np.uint16)
-
-    # Reshape the input words to separate each line and group words for processing
-    word_lines = raw.reshape(height, int(words_per_line))
-
-    # Extract and assign the components using bitwise operations
-    components[:, 0::8] = (word_lines[:, 1::6] & 0xFFF)
-    components[:, 1::8] = (((word_lines[:, 0::6] & 0xFF) << 4) | (word_lines[:, 1::6] >> 12))
-    components[:, 2::8] = (((word_lines[:, 3::6] & 0xF) << 8) | (word_lines[:, 0::6] >> 8))
-    components[:, 3::8] = (word_lines[:, 3::6] >> 4)
-    components[:, 4::8] = (word_lines[:, 2::6] & 0xFFF)
-    components[:, 5::8] = (((word_lines[:, 5::6] & 0xFF) << 4) | (word_lines[:, 2::6] >> 12))
-    components[:, 6::8] = (((word_lines[:, 4::6] & 0xF) << 8) | (word_lines[:, 5::6] >> 8))
-    components[:, 7::8] = ((word_lines[:, 4::6] >> 4) & 0xFFF)
-    
-    # Reshape the unpacked components to match the image dimensions and component layout
-    image_data = components.reshape(height, width, components_per_pixel)
+    image_data = np.array([
+        (word_lines[:, 1::6] & 0xFFF),
+        ((word_lines[:, 0::6] & 0xFF) << 4) | (word_lines[:, 1::6] >> 12),
+        ((word_lines[:, 3::6] & 0xF) << 8) | (word_lines[:, 0::6] >> 8),
+        (word_lines[:, 3::6] >> 4),
+        (word_lines[:, 2::6] & 0xFFF),
+        ((word_lines[:, 5::6] & 0xFF) << 4) | (word_lines[:, 2::6] >> 12),
+        ((word_lines[:, 4::6] & 0xF) << 8) | (word_lines[:, 5::6] >> 8),
+        (word_lines[:, 4::6] >> 4 & 0xFFF)
+    ], dtype=np.uint16).transpose(1, 2, 0).reshape(height, width, components_per_pixel )  # Reshape to (height, width, components_per_pixel)
 
     # Convert to float32 and normalize
-    image_data = image_data.astype(np.float32) / 0x0FFF
+    image_data = image_data.astype(np.float32)
+    image_data /= 0x0FFF
 
     return image_data
 
