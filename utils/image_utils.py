@@ -1,4 +1,4 @@
-import os
+import os, math
 import numpy as np
 from numbers import Number
 from functools import lru_cache
@@ -91,17 +91,56 @@ def read_dpx(image_path: str) -> np.ndarray:
     if meta['endianness'] == 'be':
         raw.byteswap(True)
 
-    image = np.array([raw >> 22, raw >> 12, raw >> 2], dtype=np.uint16)
-    image &= 0x3FF
+    image_data = np.array([raw >> 22, raw >> 12, raw >> 2], dtype=np.uint16)
+    image_data &= 0x3FF
 
     # NOTE: to uint8
-    # image = (image >> 2).astype(np.uint8)
+    # image_data = (image_data >> 2).astype(np.uint8)
 
     # to float32
-    image = image.astype(np.float32)
-    image /= 0x3FF
+    image_data = image_data.astype(np.float32)
+    image_data /= 0x3FF
 
-    return image.transpose(1, 2, 0)
+    return image_data.transpose(1, 2, 0)
+
+def read_dpx_12bit(image_path: str) -> np.ndarray:
+    with open(image_path, "rb") as file:
+
+        meta = read_dpx_header(file)
+        width = meta['GenericImageHeader'][2]
+        height = meta['GenericImageHeader'][3]
+        offset = meta['GenericFileHeader'][1]
+
+        file.seek(offset)
+        raw = np.fromfile(file, dtype=np.uint16, count=(math.ceil(width * 9/4) *height))
+
+    if meta['endianness'] == 'be':
+        raw.byteswap(True)
+
+    components_per_pixel = 3  # Assuming RGB components
+    len_w = (len(raw))
+    total_components = width * height * components_per_pixel  # Total number of components in the image
+    components = np.zeros((height, int(total_components/height/8), 8), dtype=np.uint16)  # Initialize the output array
+    
+    word_lines = raw.reshape(height, int(len_w/height/6), 6)
+
+    components[:, :, 0::8] = (word_lines[:, :, 1] & 0xFFF)[:, :, np.newaxis]  # Add new axis to match 3D shape
+    components[:, :, 1::8] = (((word_lines[:, :, 0] & 0xFF) << 4) | ((word_lines[:, :, 1] >> 12) & 0xF))[:, :, np.newaxis]
+    components[:, :, 2::8] = (((word_lines[:, :, 3] & 0xF) << 8) | ((word_lines[:, :, 0] >> 8) & 0xFF))[:, :, np.newaxis]
+    components[:, :, 3::8] = ((word_lines[:, :, 3] >> 4) & 0xFFF)[:, :, np.newaxis]
+    components[:, :, 4::8] = (word_lines[:, :, 2] & 0xFFF)[:, :, np.newaxis]
+    components[:, :, 5::8] = (((word_lines[:, :, 5] & 0xFF) << 4) | ((word_lines[:, :, 2] >> 12) & 0xF))[:, :, np.newaxis]
+    components[:, :, 6::8] = (((word_lines[:, :, 4] & 0xF) << 8) | ((word_lines[:, :, 5] >> 8) & 0xFF))[:, :, np.newaxis]
+    components[:, :, 7::8] = ((word_lines[:, :, 4] >> 4) & 0xFFF)[:, :, np.newaxis]
+    
+    # Reshape the components array to the shape of the image
+    image_data = components.reshape(height, width, components_per_pixel)
+
+    # to float32
+    image_data = image_data.astype(np.float32)
+    image_data /= 0x3FF
+
+    return image_data
 
 class ImageSequence:
 
