@@ -2,10 +2,27 @@ import os, math
 import numpy as np
 from numbers import Number
 from functools import lru_cache
-import OpenEXR
+try:
+    import OpenEXR
+except ImportError:
+    IS_SUPPORT_OPENEXR_LIB = False
+else:
+    IS_SUPPORT_OPENEXR_LIB = True
+import cv2
 import Imath
 import struct
 from utils.path_utils import PathSequence
+
+def read_image(image_path: str):
+    # Read file using OpenCV
+    image_data = cv2.imread(image_path, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+    image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
+
+    # Check if the image was successfully loaded
+    if image_data is None:
+        raise FileNotFoundError(f"Unable to load image at {image_path}")
+
+    return image_data
 
 def read_exr(image_path: str) -> np.ndarray:
     """Read an EXR image from file and return it as a NumPy array.
@@ -19,6 +36,9 @@ def read_exr(image_path: str) -> np.ndarray:
     """
     if not os.path.isfile(image_path):
         return None
+
+    if not IS_SUPPORT_OPENEXR_LIB:
+        return read_image(image_path)
 
     # Open the EXR file for reading
     exr_file = OpenEXR.InputFile(image_path)
@@ -166,7 +186,7 @@ class ImageSequence:
         file_extension = file_path.split('.')[-1].lower()
         
         # Lookup read method for given file extension
-        read_method = self.file_type_handlers.get(file_extension)
+        read_method = self.file_type_handlers.get(file_extension, read_image)
 
         if not read_method:
             supported_types = ", ".join(self.file_type_handlers.keys())
