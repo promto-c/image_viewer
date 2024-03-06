@@ -16,11 +16,12 @@ from utils.path_utils import PathSequence
 def read_image(image_path: str):
     # Read file using OpenCV
     image_data = cv2.imread(image_path, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
-    image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
 
     # Check if the image was successfully loaded
     if image_data is None:
         raise FileNotFoundError(f"Unable to load image at {image_path}")
+
+    image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
 
     return image_data
 

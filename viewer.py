@@ -102,7 +102,9 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             image_data = self.image
 
         elif isinstance(self.image, ImageSequence):
-            image_data = self.image.get_image_data(self.current_frame)
+            # NOTE: workaround when current frame has no image
+            # TODO: Handle to preview on frame that no image
+            image_data = self.image.get_image_data(self.image.frame_range()[0])
             self.canvas_height, self.canvas_width, _c = image_data.shape
 
         elif isinstance(self.image, Node):
