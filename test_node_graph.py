@@ -52,6 +52,10 @@ class DockWidget(QtWidgets.QDockWidget):
         self.setTitleBarWidget(title_bar)
         self.setWidget(widget)
 
+class DockContainer(QtWidgets.QMainWindow):
+    ...
+
+# TODO: Use DockContainer to handle docks then turn this class to QWidget
 class MainWindow(QtWidgets.QMainWindow):
     """A PyQt5 main window for a VFX Composite App.
     
