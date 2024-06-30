@@ -5,7 +5,7 @@ from tablerqicon import TablerQIcon
 from qtpy import QtWidgets, QtGui, QtCore
 
 from nodes.node import Node
-from utils.image_utils import ImageSequence
+from blackboard.utils.image_utils import ImageSequence
 
 class ReadNodePanel(QtWidgets.QWidget):
     """A PyQt5 widget with a user interface created from a .ui file.
@@ -25,15 +25,15 @@ class ReadNodePanel(QtWidgets.QWidget):
         super().__init__(parent)
 
         # Set up the initial attributes
-        self._setup_attributes()
+        self.__init_attributes()
         # Set up the UI
-        self._setup_ui()
+        self.__init_ui()
         # Set up signal connections
-        self._setup_signal_connections()
+        self.__init_signal_connections()
         # Set up the icons
         self._setup_icons()
 
-    def _setup_attributes(self):
+    def __init_attributes(self):
         """Set up the initial values for the widget.
         """
         # Attributes
@@ -43,7 +43,7 @@ class ReadNodePanel(QtWidgets.QWidget):
         # Private Attributes
         # ------------------
 
-    def _setup_ui(self):
+    def __init_ui(self):
         """Set up the UI for the widget, including creating widgets and layouts.
         """
         # Create widgets and layouts here
@@ -64,7 +64,7 @@ class ReadNodePanel(QtWidgets.QWidget):
         layout.addWidget(self.file_edit)
         layout.addWidget(self.open_button)
 
-    def _setup_signal_connections(self):
+    def __init_signal_connections(self):
         """Set up signal connections between widgets and slots.
         """
         # Connect signals to slots here

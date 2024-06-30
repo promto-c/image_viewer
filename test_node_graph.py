@@ -66,11 +66,11 @@ class MainWindow(QtWidgets.QMainWindow):
         """Initialize the main window and set up the UI, signal connections, and menu."""
         super().__init__(parent)
         
-        self._setup_attributes()
-        self._setup_ui()
-        self._setup_signal_connections()
+        self.__init_attributes()
+        self.__init_ui()
+        self.__init_signal_connections()
 
-    def _setup_attributes(self):
+    def __init_attributes(self):
         """Set up the initial values and widgets for the main window."""
         self.tabler_qicon =  TablerQIcon()
 
@@ -90,7 +90,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.object_list = ObjectList()
         self.object_properties = ObjectProperties()
 
-    def _setup_ui(self):
+    def __init_ui(self):
         """Set up the UI for the main window, including creating widgets and layouts."""
         self.setWindowTitle("VFX Composite App")
         self.setDockNestingEnabled(True)
@@ -115,7 +115,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.add_viewer_action = QtWidgets.QAction("Add Viewer", self)
         # self.menu.addAction(self.add_viewer_action)
 
-    def _setup_signal_connections(self):
+    def __init_signal_connections(self):
         """Set up signal connections between widgets and slots."""
         # Any specific signal connections can be added here.
         # self.add_viewer_action.triggered.connect(self._add_viewer)

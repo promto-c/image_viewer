@@ -12,13 +12,14 @@ import cv2
 from OpenGL import GL
 from qtpy import QtCore, QtGui, QtWidgets
 
+from blackboard.utils.image_utils import ImageSequence
+
 # Local Imports
 # -------------
 from theme import theme
 from tranformation import apply_transformation
 from entity import Entity, CanvasEntity, LayerEntity, ShapeEntity
 from shaders.viewer_shader import ViewerShaderProgram
-from utils.image_utils import ImageSequence
 from nodes.node import Node
 
 
@@ -52,11 +53,11 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.image = image
 
         # Set up the initial values
-        self._setup_attributes()
+        self.__init_attributes()
         # Set up signal connections
-        self._setup_signal_connections()
+        self.__init_signal_connections()
 
-    def _setup_attributes(self):
+    def __init_attributes(self):
         """Set up the initial values for the widget.
         """
         # Attributes
@@ -126,7 +127,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.canvas_entity.set_image(image_data)
         self.update()
 
-    def _setup_signal_connections(self):
+    def __init_signal_connections(self):
         """Set up signal connections between widgets and slots.
         """
         # Key Binds
@@ -417,10 +418,10 @@ class MainUI(QtWidgets.QWidget):
         image = cv2.imread(image_path)
         self.image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        self._setup_ui()
-        self._setup_signal_connections()
+        self.__init_ui()
+        self.__init_signal_connections()
 
-    def _setup_ui(self):
+    def __init_ui(self):
         self.viewer = ImageViewerGLWidget(self.image, self)
         self.current = self.image
 
@@ -432,7 +433,7 @@ class MainUI(QtWidgets.QWidget):
 
         self.viewer.vector_entities.append(self.shape)
 
-    def _setup_signal_connections(self):
+    def __init_signal_connections(self):
         self.viewer.left_mouse_pressed.connect(self.store_start_pos)
 
     def store_start_pos(self, event: QtGui.QMouseEvent):

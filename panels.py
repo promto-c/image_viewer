@@ -43,15 +43,15 @@ class NodePropertiesWidget(QtWidgets.QWidget):
         
 
         # Set up the initial attributes
-        self._setup_attributes()
+        self.__init_attributes()
         # Set up the UI
-        self._setup_ui()
+        self.__init_ui()
         # Set up signal connections
-        self._setup_signal_connections()
+        self.__init_signal_connections()
         # Set up the icons
         self._setup_icons()
 
-    def _setup_attributes(self):
+    def __init_attributes(self):
         """Set up the initial values for the widget.
         """
         # Attributes
@@ -61,7 +61,7 @@ class NodePropertiesWidget(QtWidgets.QWidget):
         # Private Attributes
         # ------------------
 
-    def _setup_ui(self):
+    def __init_ui(self):
         """Set up the UI for the widget, including creating widgets and layouts.
         """
         self.setWindowTitle(self.WINDOW_TITLE)
@@ -81,7 +81,7 @@ class NodePropertiesWidget(QtWidgets.QWidget):
         self.trash_widget.setHidden(True)
         # self.main_layout.addWidget(self.trash_widget)
 
-    def _setup_signal_connections(self):
+    def __init_signal_connections(self):
         """Set up signal connections between widgets and slots.
         """
         # Connect signals to slots here

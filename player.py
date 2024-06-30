@@ -1,6 +1,5 @@
 # Standard Library Imports
 # ------------------------
-import sys
 import os
 from typing import Callable, Union
 
@@ -8,22 +7,26 @@ from typing import Callable, Union
 # -------------------
 from qtpy import QtCore, QtGui, QtWidgets, uic
 from tablerqicon import TablerQIcon
+from blackboard.utils.image_utils import ImageSequence
+from blackboard.utils.key_binder import KeyBinder
+from blackboard.widgets.double_spin_box import DoubleSpinBoxWidget
 
 # Local Imports
 # -------------
-from theme import theme
-
 from viewer import ImageViewerGLWidget
 
-from utils.image_utils import ImageSequence
 from utils.path_utils import PACKAGE_ROOT
 from utils.conversion_utils import fps_to_interval_msc
 from nodes.node import Node
 
-from widget.double_spin_box import DoubleSpinBoxWidget
 
+# Constant Definitions
+# --------------------
 PLAYER_WIDGET_UI = PACKAGE_ROOT / 'ui/player_widget.ui'
 
+
+# Class Definitions
+# -----------------
 class ImageLoader(QtCore.QRunnable):
     def __init__(self, widget: 'PlayerWidget', frame: int):
         super().__init__()
@@ -81,15 +84,14 @@ class PlayerWidget(QtWidgets.QWidget):
         else:
             self.image = None
 
-        # Set up the initial attributes
-        self._setup_attributes()
-        # Set up the UI
-        self._setup_ui()
-        # Set up signal connections
-        self._setup_signal_connections()
+        # Initialize setup
+        self.__init_attributes()
+        self.__init_ui()
+        self.__init_signal_connections()
 
-    def _setup_attributes(self):
-
+    def __init_attributes(self):
+        """Initialize the attributes.
+        """
         self.current_frame = 0.0
 
         self.viewer = ImageViewerGLWidget(parent=self)
@@ -108,7 +110,9 @@ class PlayerWidget(QtWidgets.QWidget):
         self.gamma_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
         self.gamma_spin_box_widget.setToolTip('Gamma')
 
-    def _setup_ui(self):
+    def __init_ui(self):
+        """Initialize the UI of the widget.
+        """
         # Setup Main Widget
         # -----------------
         self.setWindowTitle(self.TITLE)
@@ -151,8 +155,9 @@ class PlayerWidget(QtWidgets.QWidget):
         self.start_frame_button.setIcon(self.tabler_icon.brackets_contain_start)
         self.end_frame_button.setIcon(self.tabler_icon.brackets_contain_end)
 
-    def _setup_signal_connections(self):
-
+    def __init_signal_connections(self):
+        """Initialize signal-slot connections.
+        """
         self.prefetch_button.clicked.connect(self.prefetch)
 
         self.playback_speed_combo_box.currentTextChanged.connect(self.set_playback_speed)
@@ -175,12 +180,12 @@ class PlayerWidget(QtWidgets.QWidget):
 
         # Key Binds
         # ---------
-        self.key_bind('j', self.play_backward)
-        self.key_bind('k', self.stop_playback)
-        self.key_bind('l', self.play_forward)
+        KeyBinder.bind_key('j', parent_widget=self, callback=self.play_backward)
+        KeyBinder.bind_key('k', parent_widget=self, callback=self.stop_playback)
+        KeyBinder.bind_key('l', parent_widget=self, callback=self.play_forward)
 
-        self.key_bind('z', self.previous_frame)
-        self.key_bind('x', self.next_frame)
+        KeyBinder.bind_key('z', parent_widget=self, callback=self.previous_frame)
+        KeyBinder.bind_key('x', parent_widget=self, callback=self.next_frame)
 
     def _create_thread_pool(self):
         thread_pool = QtCore.QThreadPool()
@@ -238,12 +243,6 @@ class PlayerWidget(QtWidgets.QWidget):
             self.thread_pool.start(worker)
             # self.thread_pool.waitForDone(0)
 
-    def key_bind(self, key_sequence: str, function: Callable):
-        # Create a shortcut
-        shortcut = QtWidgets.QShortcut(QtGui.QKeySequence(key_sequence), self)
-        # Connect the activated signal of the shortcut to the slot
-        shortcut.activated.connect(function)
-
     def set_playback_speed(self, playback_fps: float = 24.0):
         try:
             playback_fps = float(playback_fps)
@@ -296,9 +295,11 @@ class PlayerWidget(QtWidgets.QWidget):
         super().closeEvent(event)
 
 if __name__ == "__main__":
+    import blackboard as bb
+    import sys
     
     app = QtWidgets.QApplication(sys.argv)
-    theme.set_theme(app, theme='dark')
+    bb.theme.set_theme(app, theme='dark')
 
     image_path = 'example_exr_plates\C0653.####.exr'
     player_widget = PlayerWidget()

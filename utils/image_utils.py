@@ -1,7 +1,6 @@
 import os, math
 import numpy as np
 from numbers import Number
-from functools import lru_cache
 try:
     import OpenEXR
 except ImportError:
@@ -11,7 +10,6 @@ else:
 import cv2
 import Imath
 import struct
-from utils.path_utils import PathSequence
 
 class ImageIO:
 
@@ -190,31 +188,3 @@ class ImageIO:
         image_data /= 0x0FFF
 
         return image_data
-
-
-class ImageSequence:
-
-    def __init__(self, input_path: str) -> None:
-        self.input_path = input_path
-
-        # Set up the initial attributes
-        self._setup_attributes()
-
-    def _setup_attributes(self):
-        self.path_sequence = PathSequence(self.input_path)
-
-    @lru_cache(maxsize=400)
-    def read_image(self, file_path: str):
-        return ImageIO.read_image(file_path)
-
-    def get_image_data(self, frame: Number):
-        file_path = self.get_frame_path(frame)
-        return self.read_image(file_path)
-    
-    # From Path Sequence
-    # ------------------
-    def frame_range(self):
-        return self.path_sequence.get_frame_range()
-
-    def get_frame_path(self, frame: Number):
-        return self.path_sequence.get_frame_path(frame)

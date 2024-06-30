@@ -1,3 +1,6 @@
 [submodule "theme"]
 	path = theme
 	url = https://github.com/promto-c/pyqt-dark-theme.git
+[submodule "submodules/blackboard"]
+	path = submodules/blackboard
+	url = https://github.com/promto-c/blackboard.git
