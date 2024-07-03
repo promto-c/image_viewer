@@ -38,6 +38,7 @@ class ImageLoader(QtCore.QRunnable):
         self.frame = frame
 
     def run(self):
+        self.widget.image_loading_signal.emit(self.frame)
         _image_data = self.widget.image.get_image_data(self.frame)
         try:
             self.widget.image_loaded_signal.emit(self.frame)
@@ -77,6 +78,7 @@ class PlayerWidget(QtWidgets.QWidget):
     frame_slider: QtWidgets.QSlider
     end_frame_spin_box: QtWidgets.QSpinBox
 
+    image_loading_signal = QtCore.Signal(int)
     image_loaded_signal = QtCore.Signal(int)
     
     def __init__(self, input_path: str = str(), parent=None):
@@ -186,7 +188,8 @@ class PlayerWidget(QtWidgets.QWidget):
         self.current_frame_spin_box.valueChanged.connect(self.set_frame)
         self.frame_slider.valueChanged.connect(self.set_frame)
 
-        self.image_loaded_signal.connect(self.update_frame_cached_status)
+        self.image_loading_signal.connect(lambda frame_number: self.frame_indicator_bar.update_frame_status(frame_number, FrameStatus.CACHING))
+        self.image_loaded_signal.connect(lambda frame_number: self.frame_indicator_bar.update_frame_status(frame_number, FrameStatus.CACHED))
 
         # Key Binds
         # ---------
@@ -232,10 +235,6 @@ class PlayerWidget(QtWidgets.QWidget):
 
         self.start_frame_spin_box.setValue(self.first_frame)
         self.end_frame_spin_box.setValue(self.last_frame)
-
-    def update_frame_cached_status(self, frame_number: int):
-        print(frame_number)
-        self.frame_indicator_bar.update_frame_status(frame_number, FrameStatus.CACHED)
 
     def prefetch(self):
         # Calculate the range of frames to prefetch

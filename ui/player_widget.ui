@@ -125,13 +125,6 @@
                 </widget>
                </item>
                <item>
-                <widget class="QProgressBar" name="prefetch_progress_bar">
-                 <property name="value">
-                  <number>24</number>
-                 </property>
-                </widget>
-               </item>
-               <item>
                 <widget class="QSpinBox" name="num_cores_spin_box">
                  <property name="styleSheet">
                   <string notr="true">QSpinBox {
