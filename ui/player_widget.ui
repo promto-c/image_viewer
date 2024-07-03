@@ -511,11 +511,18 @@ QDoubleSpinBox {
              </widget>
             </item>
             <item>
-             <widget class="QSlider" name="frame_slider">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+             <layout class="QVBoxLayout" name="frame_indicator_layout">
+              <property name="spacing">
+               <number>0</number>
               </property>
-             </widget>
+              <item>
+               <widget class="QSlider" name="frame_slider">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
             <item>
              <widget class="QWidget" name="end_frame_widget" native="true">

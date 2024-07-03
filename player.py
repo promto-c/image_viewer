@@ -1,7 +1,10 @@
 # Standard Library Imports
 # ------------------------
 import os
-from typing import Callable, Union
+from typing import Any, Callable, Union, TYPE_CHECKING
+if TYPE_CHECKING:
+    import numpy as np
+
 
 # Third Party Imports
 # -------------------
@@ -10,6 +13,7 @@ from tablerqicon import TablerQIcon
 from blackboard.utils.image_utils import ImageSequence
 from blackboard.utils.key_binder import KeyBinder
 from blackboard.widgets.double_spin_box import DoubleSpinBoxWidget
+from blackboard.widgets.frame_indicator_widget import FrameIndicatorBar, FrameStatus
 
 # Local Imports
 # -------------
@@ -34,12 +38,11 @@ class ImageLoader(QtCore.QRunnable):
         self.frame = frame
 
     def run(self):
-        image_data = self.widget.image.get_image_data(self.frame)
+        _image_data = self.widget.image.get_image_data(self.frame)
         try:
-            self.widget.image_loaded_signal.emit(self.frame, image_data)
+            self.widget.image_loaded_signal.emit(self.frame)
         except RuntimeError as e:
             pass
-
 
 class PlayerWidget(QtWidgets.QWidget):
 
@@ -47,7 +50,6 @@ class PlayerWidget(QtWidgets.QWidget):
     TITLE = 'Player'
 
     prefetch_button: QtWidgets.QPushButton
-    prefetch_progress_bar: QtWidgets.QProgressBar
     num_cores_spin_box: QtWidgets.QSpinBox
     cpu_button: QtWidgets.QPushButton
 
@@ -57,6 +59,8 @@ class PlayerWidget(QtWidgets.QWidget):
 
     top_right_layout: QtWidgets.QHBoxLayout
     center_layout: QtWidgets.QVBoxLayout
+    frame_indicator_layout: QtWidgets.QVBoxLayout
+
 
     playback_speed_button: QtWidgets.QPushButton
     playback_speed_combo_box: QtWidgets.QComboBox
@@ -73,7 +77,7 @@ class PlayerWidget(QtWidgets.QWidget):
     frame_slider: QtWidgets.QSlider
     end_frame_spin_box: QtWidgets.QSpinBox
 
-    image_loaded_signal = QtCore.Signal(int, object)
+    image_loaded_signal = QtCore.Signal(int)
     
     def __init__(self, input_path: str = str(), parent=None):
         super().__init__(parent)
@@ -110,6 +114,11 @@ class PlayerWidget(QtWidgets.QWidget):
         self.gamma_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
         self.gamma_spin_box_widget.setToolTip('Gamma')
 
+        self.frame_indicator_bar = FrameIndicatorBar()
+        self.frame_indicator_bar.setMaximumHeight(2)
+
+
+
     def __init_ui(self):
         """Initialize the UI of the widget.
         """
@@ -132,12 +141,13 @@ class PlayerWidget(QtWidgets.QWidget):
         self.set_image(self.image)
         self.center_layout.addWidget(self.viewer)
 
+        self.frame_indicator_layout.insertWidget(0, self.frame_indicator_bar)
+
+        # Playback Controls
+        # -----------------
+
         # 
         self.set_playback_speed()
-
-        self.prefetch_progress_bar.setMaximum(0)
-        self.prefetch_progress_bar.setMinimum(0)
-        self.prefetch_progress_bar.setValue(0)
 
         # Set Icons
         # ---------
@@ -176,7 +186,7 @@ class PlayerWidget(QtWidgets.QWidget):
         self.current_frame_spin_box.valueChanged.connect(self.set_frame)
         self.frame_slider.valueChanged.connect(self.set_frame)
 
-        self.image_loaded_signal.connect(self.update_progress_bar)
+        self.image_loaded_signal.connect(self.update_frame_cached_status)
 
         # Key Binds
         # ---------
@@ -218,23 +228,19 @@ class PlayerWidget(QtWidgets.QWidget):
         self.frame_slider.setMinimum(self.first_frame)
         self.frame_slider.setMaximum(self.last_frame)
 
+        self.frame_indicator_bar.set_frame_range(self.first_frame, self.last_frame)
+
         self.start_frame_spin_box.setValue(self.first_frame)
         self.end_frame_spin_box.setValue(self.last_frame)
 
-    @QtCore.Slot()
-    def update_progress_bar(self):
-        current_value = self.prefetch_progress_bar.value()
-        self.prefetch_progress_bar.setValue(current_value + 1)
+    def update_frame_cached_status(self, frame_number: int):
+        print(frame_number)
+        self.frame_indicator_bar.update_frame_status(frame_number, FrameStatus.CACHED)
 
     def prefetch(self):
         # Calculate the range of frames to prefetch
         start_frame = self.current_frame
         end_frame = self.end_frame_spin_box.value()
-
-        # Set the range for the progress bar
-        total_frames = end_frame - start_frame + 1
-        self.prefetch_progress_bar.setMaximum(total_frames)
-        self.prefetch_progress_bar.setValue(0)
 
         for frame in range(int(start_frame), int(end_frame) + 1):
             # Create a worker and pass the read_image function to it
@@ -274,6 +280,8 @@ class PlayerWidget(QtWidgets.QWidget):
 
         self.viewer.set_frame(self.current_frame)
 
+        self.frame_indicator_bar.update_frame_status(self.current_frame, FrameStatus.CACHED)
+
     def next_frame(self, increment: int = 1):
         if self.current_frame == self.last_frame:
             next_frame = self.first_frame
@@ -297,11 +305,11 @@ class PlayerWidget(QtWidgets.QWidget):
 if __name__ == "__main__":
     import blackboard as bb
     import sys
-    
+
     app = QtWidgets.QApplication(sys.argv)
     bb.theme.set_theme(app, theme='dark')
 
-    image_path = 'example_exr_plates\C0653.####.exr'
+    image_path = 'c:/Users/promm/Downloads/tmp.####.jpg'
     player_widget = PlayerWidget()
     player_widget.show()
 

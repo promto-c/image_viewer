@@ -29,7 +29,7 @@ class Node(BaseNode):
 
         return predecessor_node
 
-    def frame_range(self)-> Tuple[Number, Number]: 
+    def frame_range(self)-> Tuple[Number, Number]:
         predecessor_node = self.get_input_node(0)
 
         if not predecessor_node:
