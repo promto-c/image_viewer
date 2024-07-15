@@ -99,6 +99,7 @@ class PlayerWidget(QtWidgets.QWidget):
         """Initialize the attributes.
         """
         self.current_frame = 0.0
+        self._is_setting_frame = False
 
         self.viewer = ImageViewerGLWidget(parent=self)
 
@@ -185,8 +186,8 @@ class PlayerWidget(QtWidgets.QWidget):
         self.gamma_spin_box_widget.valueChanged.connect(self.viewer.set_gamma)
         self.gain_spin_box_widget.valueChanged.connect(self.viewer.set_gain)
 
-        self.current_frame_spin_box.valueChanged.connect(self.set_frame)
-        self.frame_slider.valueChanged.connect(self.set_frame)
+        self.current_frame_spin_box.valueChanged.connect(self._proxy_set_frame)
+        self.frame_slider.valueChanged.connect(self._proxy_set_frame)
 
         self.image_loading_signal.connect(lambda frame_number: self.frame_indicator_bar.update_frame_status(frame_number, FrameStatus.CACHING))
         self.image_loaded_signal.connect(lambda frame_number: self.frame_indicator_bar.update_frame_status(frame_number, FrameStatus.CACHED))
@@ -271,15 +272,22 @@ class PlayerWidget(QtWidgets.QWidget):
         self.stop_playback()
         self.play_backward_timer.start()
 
-    def set_frame(self, frame_number: int):
-        self.current_frame = frame_number
+    def _proxy_set_frame(self, frame_number: int):
+        if self._is_setting_frame:
+            return
+        self.set_frame(frame_number)
 
-        self.current_frame_spin_box.setValue(int(self.current_frame))
+    def set_frame(self, frame_number: int):
+        self._is_setting_frame = True
+
+        self.current_frame = frame_number
+        self.current_frame_spin_box.setValue(self.current_frame)
         self.frame_slider.setValue(self.current_frame)
 
         self.viewer.set_frame(self.current_frame)
-
         self.frame_indicator_bar.update_frame_status(self.current_frame, FrameStatus.CACHED)
+
+        self._is_setting_frame = False
 
     def next_frame(self, increment: int = 1):
         if self.current_frame == self.last_frame:

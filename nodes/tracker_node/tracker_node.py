@@ -216,7 +216,7 @@ class Tracker:
         return keypoints.reshape(-1, 1, 2)
 
     def matching(self, src_image_data: np.ndarray, dst_image_data: np.ndarray, src_keypoints: List[Tuple[float, float]], 
-                 dst_keypoints: List[Tuple[float, float]]) -> np.ndarray:
+                 dst_keypoints: List[Tuple[float, float]], win_size=(15, 15)) -> np.ndarray:
         src_image_data = to_uint8_gray(src_image_data)
         dst_image_data = to_uint8_gray(dst_image_data)
 
@@ -224,7 +224,11 @@ class Tracker:
         dst_keypoints = self.convert_keypoints(dst_keypoints) if dst_keypoints is not None else None
 
         # Parameters for Lucas-Kanade optical flow
-        lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+        lk_params = dict(winSize=win_size, maxLevel=4, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+
+        # Build pyramids
+        # src_pyramid = cv2.buildOpticalFlowPyramid(src_image_data, win_size, max_level)[1]
+        # dst_pyramid = cv2.buildOpticalFlowPyramid(dst_image_data, win_size, max_level)[1]
 
         # Calculate optical flow
         dst_keypoints, status, err = cv2.calcOpticalFlowPyrLK(src_image_data, dst_image_data, src_keypoints, dst_keypoints, **lk_params)
