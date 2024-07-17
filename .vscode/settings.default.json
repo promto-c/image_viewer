@@ -1,9 +1,9 @@
 {
     "terminal.integrated.env.linux": {
-        "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}"
+        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/submodules/blackboard:${env:PYTHONPATH}"
     },
     "terminal.integrated.env.osx": {
-        "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}"
+        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/submodules/blackboard:${env:PYTHONPATH}"
     },
     "terminal.integrated.env.windows": {
         "PYTHONPATH": "${workspaceFolder};${workspaceFolder}/submodules/blackboard;${env:PYTHONPATH}",

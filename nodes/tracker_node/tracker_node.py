@@ -168,7 +168,7 @@ class Tracker:
 
     # TODO: Set default to use whole image
     def detect_features(self, src_image_data: np.ndarray,
-                        grid_size: Tuple[int, int] = (18, 16),
+                        grid_size: Tuple[int, int] = (9, 7),
                         max_keypoints_per_cell: int = 1) -> List[cv2.KeyPoint]:
         """Detect keypoints in each grid cell of the image.
 
@@ -209,14 +209,29 @@ class Tracker:
                     all_keypoints.append(keypoint.pt)
 
         return all_keypoints
-    
+
+    def update_keypoints(self, image: np.ndarray, keypoints: List[cv2.KeyPoint], grid_size: Tuple[int, int]) -> List[cv2.KeyPoint]:
+        height, width = image.shape[:2]
+        cell_height, cell_width = height // grid_size[0], width // grid_size[1]
+
+        new_keypoints = []
+        for keypoint in keypoints:
+            x, y = keypoint.pt
+            grid_x = int(x // cell_width)
+            grid_y = int(y // cell_height)
+
+            if grid_x < 0 or grid_x >= grid_size[1] or grid_y < 0 or grid_y >= grid_size[0]:
+                new_keypoints.append(keypoint)
+        
+        return new_keypoints
+
     @staticmethod
     def convert_keypoints(keypoints: List[Tuple[float, float]]) -> np.ndarray:
         keypoints = np.array(keypoints, dtype=np.float32)
         return keypoints.reshape(-1, 1, 2)
 
     def matching(self, src_image_data: np.ndarray, dst_image_data: np.ndarray, src_keypoints: List[Tuple[float, float]], 
-                 dst_keypoints: List[Tuple[float, float]], win_size=(15, 15)) -> np.ndarray:
+                 dst_keypoints: List[Tuple[float, float]], win_size=(50, 50)) -> np.ndarray:
         src_image_data = to_uint8_gray(src_image_data)
         dst_image_data = to_uint8_gray(dst_image_data)
 
@@ -224,7 +239,7 @@ class Tracker:
         dst_keypoints = self.convert_keypoints(dst_keypoints) if dst_keypoints is not None else None
 
         # Parameters for Lucas-Kanade optical flow
-        lk_params = dict(winSize=win_size, maxLevel=4, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+        lk_params = dict(winSize=win_size, maxLevel=8, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
         # Build pyramids
         # src_pyramid = cv2.buildOpticalFlowPyramid(src_image_data, win_size, max_level)[1]
@@ -255,12 +270,10 @@ class TrackerNode(Node):
         # TODO: Use image data from input node instead of player or viewer
         self.player = player
 
-        # Set up the initial attributes
+        # Initialize setup
         self.__init_attributes()
-        self._setup_ports()
-        # Set up the UI
+        self.__init_ports()
         self.__init_ui()
-        # Set up signal connections
         self.__init_signal_connections()
 
     def __init_attributes(self):
@@ -281,7 +294,7 @@ class TrackerNode(Node):
         self.track_points_entity = TrackPointsEntity()
         self.vector_entities.append(self.track_points_entity)
 
-    def _setup_ports(self):
+    def __init_ports(self):
         # create input ports
         self.add_input('in 1')
 
