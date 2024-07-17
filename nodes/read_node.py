@@ -84,7 +84,8 @@ class ReadNodePanel(QtWidgets.QWidget):
     def show_dialog(self):
 
         # Generate the filter string
-        media_file_types = ' '.join(f'*.{ext}' for ext in ImageSequence.file_type_handlers.keys())
+        # NOTE: Tmp
+        media_file_types = ' '.join(f'*.{ext}' for ext in ['exr', 'dpx'])
         filter_string = f'Media Files ({media_file_types});;EXR Files (*.exr);;DPX Files (*.dpx);;All Files (*)'
 
         file, _ = QtWidgets.QFileDialog.getOpenFileName(

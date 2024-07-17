@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import numpy as np
 import cv2
+from enum import Enum
 
 # Third Party Imports
 # -------------------
@@ -115,51 +116,66 @@ class TrackerNodePanel(QtWidgets.QWidget):
         # Handle key press events here
         super().keyPressEvent(event)
 
-class Tracker:
-    feature_detectors = dict(
-        SIFT = cv2.SIFT_create,
-        ORB = cv2.ORB_create,
-        FAST = cv2.FastFeatureDetector_create,
-    )
+class FeatureDetector(Enum):
+    SIFT = "SIFT"
+    ORB = "ORB"
+    FAST = "FAST"
 
-    feature_detector_to_parameters = dict(
-        SIFT = dict(
-            # nfeatures=0, 
-            # nOctaveLayers=3, 
-            contrastThreshold=0.002, 
-            edgeThreshold=100, 
-            sigma=0.3,
-        ),
-        ORB = dict(
-            nfeatures=500, 
-            scaleFactor=1.2, 
-            nlevels=8, 
-            edgeThreshold=31, 
-            firstLevel=0, 
-            WTA_K=2, 
-            patchSize=31, 
-            fastThreshold=20
-        )
-    )
+    @staticmethod
+    def _get_detector_mapping():
+        return {
+            FeatureDetector.SIFT: cv2.SIFT_create,
+            FeatureDetector.ORB: cv2.ORB_create,
+            FeatureDetector.FAST: cv2.FastFeatureDetector_create,
+        }
+
+    @staticmethod
+    def _get_default_parameters_mapping():
+        return {
+            FeatureDetector.SIFT: dict(
+                # nfeatures=0,
+                # nOctaveLayers=3,
+                contrastThreshold=0.002, 
+                edgeThreshold=100, 
+                sigma=0.3,
+            ),
+            FeatureDetector.ORB: dict(
+                nfeatures=500, 
+                scaleFactor=1.2, 
+                nlevels=8, 
+                edgeThreshold=31, 
+                firstLevel=0, 
+                WTA_K=2, 
+                patchSize=31, 
+                fastThreshold=20
+            ),
+            FeatureDetector.FAST: dict(),
+        }
+
+    @staticmethod
+    def get_names():
+        return [member.name for member in FeatureDetector]
+
+    def __str__(self):
+        return self.value
+
+    def __call__(self, **params):
+        params = params or self._get_default_parameters_mapping()[self]
+        return self._get_detector_mapping()[self](**params)
+
+class Tracker:
 
     def __init__(self, detector: str = None, parameters: Dict[str, Any] = None):
 
-        if detector is None:
-            return
+        if detector is not None:
+            self.use_detector(detector, parameters)
 
-        self.use_detector(detector, parameters)
-
-    def use_detector(self, detector: Union[str, Any], parameters: Dict[str, Any] = None):
-        if not isinstance(detector, str):
+    def use_detector(self, detector: Union[FeatureDetector, Any], parameters: Dict[str, Any] = {}):
+        if isinstance(detector, FeatureDetector):
+            # TODO: Add try, except
+            self.feature_detector = detector(**parameters)
+        else:
             self.feature_detector = detector
-            
-        FeatureDetector = Tracker.feature_detectors.get(detector)
-
-        if parameters is None:
-            parameters = Tracker.feature_detector_to_parameters.get(detector)
-
-        # TODO: Add try, except
-        self.feature_detector = FeatureDetector(**parameters)
 
     # TODO: Implemnet this
     def use_matcher(self):
@@ -209,21 +225,6 @@ class Tracker:
                     all_keypoints.append(keypoint.pt)
 
         return all_keypoints
-
-    def update_keypoints(self, image: np.ndarray, keypoints: List[cv2.KeyPoint], grid_size: Tuple[int, int]) -> List[cv2.KeyPoint]:
-        height, width = image.shape[:2]
-        cell_height, cell_width = height // grid_size[0], width // grid_size[1]
-
-        new_keypoints = []
-        for keypoint in keypoints:
-            x, y = keypoint.pt
-            grid_x = int(x // cell_width)
-            grid_y = int(y // cell_height)
-
-            if grid_x < 0 or grid_x >= grid_size[1] or grid_y < 0 or grid_y >= grid_size[0]:
-                new_keypoints.append(keypoint)
-        
-        return new_keypoints
 
     @staticmethod
     def convert_keypoints(keypoints: List[Tuple[float, float]]) -> np.ndarray:
@@ -301,8 +302,12 @@ class TrackerNode(Node):
     def __init_ui(self):
         # Panels
         # ------
-        self.panel.feature_detector_combo_box.addItems(Tracker.feature_detectors)
-        self.add_combo_menu('Feature Detector', '', list(Tracker.feature_detectors.keys()))
+        # self.panel.feature_detector_combo_box.addItems(list(FeatureDetector))
+        for detector_enum in FeatureDetector:
+             self.panel.feature_detector_combo_box.addItem(str(detector_enum), userData=detector_enum)
+
+        # self.comboBox.addItem("Item 1", userData="Data 1")
+        self.add_combo_menu('Feature Detector', '', FeatureDetector.get_names())
 
     def __init_signal_connections(self):
         # Tracker
@@ -360,7 +365,7 @@ class TrackerNode(Node):
         self.player.next_frame()
 
     def detect_features(self, src_frame):
-        feature_detector_name = self.panel.feature_detector_combo_box.currentText()
+        feature_detector_name = self.panel.feature_detector_combo_box.currentData()
         self.tracker.use_detector(feature_detector_name)
     
         # TODO: get image from input instead of player
@@ -376,7 +381,7 @@ class TrackerNode(Node):
 
     def track(self, frame_increment: int):
 
-        feature_detector_name = self.panel.feature_detector_combo_box.currentText()
+        feature_detector_name = self.panel.feature_detector_combo_box.currentData()
         self.tracker.use_detector(feature_detector_name)
 
         # TODO: Check dst exist
