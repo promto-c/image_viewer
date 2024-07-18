@@ -206,7 +206,7 @@ class Tracker:
             max_keypoints_per_cell (int): Maximum number of keypoints per cell.
 
         Returns:
-            list: List of cv2.KeyPoint objects.
+            List[cv2.KeyPoint]: List of cv2.KeyPoint objects.
         """
         src_image_data = to_uint8_gray(src_image_data)
 
@@ -231,10 +231,8 @@ class Tracker:
                 keypoints = sorted(keypoints, key=lambda k: k.response, reverse=True)[:max_keypoints_per_cell]
 
                 # Adjust keypoint positions to the global image (because they are currently local to the cell)
-                for keypoint in keypoints:
-                    keypoint.pt = (keypoint.pt[0] + x_start, keypoint.pt[1] + y_start)
-
-                    all_keypoints.append(keypoint.pt)
+                keypoints = [(keypoint.pt[0] + x_start, keypoint.pt[1] + y_start) for keypoint in keypoints]
+                all_keypoints.extend(keypoints)
 
         return all_keypoints
 
