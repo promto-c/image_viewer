@@ -195,31 +195,35 @@ class Tracker:
         pass
 
     # TODO: Set default to use whole image
-    def detect_features(self, src_image_data: np.ndarray,
-                        grid_size: Tuple[int, int] = (9, 7),
-                        max_keypoints_per_cell: int = 1) -> List[cv2.KeyPoint]:
+    def detect_features(self, src_image_data: np.ndarray, grid_partitions: Tuple[int, int] = (9, 7)) -> List[Tuple[float, float]]:
         """Detect keypoints in each grid cell of the image.
 
         Args:
             image (np.ndarray): Input image.
-            grid_size (tuple): Number of rows and columns to divide the image.
-            max_keypoints_per_cell (int): Maximum number of keypoints per cell.
+            grid_partitions (tuple): Number of rows and columns to divide the image.
 
         Returns:
             List[cv2.KeyPoint]: List of cv2.KeyPoint objects.
         """
         src_image_data = to_uint8_gray(src_image_data)
 
+        # Get the dimensions of the image
         height, width = src_image_data.shape[:2]
-        cell_height, cell_width = height // grid_size[0], width // grid_size[1]
 
-        all_keypoints = list()
+        # Unpack grid partitions
+        num_rows, num_columns = grid_partitions
 
-        for i in range(grid_size[0]):
-            for j in range(grid_size[1]):
-                # Define the cell's boundaries
-                y_start, y_end = i * cell_height, (i + 1) * cell_height
-                x_start, x_end = j * cell_width, (j + 1) * cell_width
+        # Calculate the size of each cell
+        cell_height = height // num_rows
+        cell_width = width // num_columns
+
+        all_keypoints = []
+
+        for i in range(num_rows):
+            for j in range(num_columns):
+                # Define the region of interest (ROI) for the current cell
+                y_end = (y_start := i * cell_height) + cell_height
+                x_end = (x_start := j * cell_width) + cell_width
 
                 # Extract the cell from the image
                 cell = src_image_data[y_start:y_end, x_start:x_end]
@@ -227,12 +231,12 @@ class Tracker:
                 # Detect keypoints in the cell
                 keypoints = self.feature_detector.detect(cell, None)
 
-                # Sort keypoints by their response and keep the top 'max_keypoints_per_cell' keypoints
-                keypoints = sorted(keypoints, key=lambda k: k.response, reverse=True)[:max_keypoints_per_cell]
+                # Sort keypoints by their response and keep the top keypoint
+                keypoint = sorted(keypoints, key=lambda k: k.response, reverse=True)[0]
 
                 # Adjust keypoint positions to the global image (because they are currently local to the cell)
-                keypoints = [(keypoint.pt[0] + x_start, keypoint.pt[1] + y_start) for keypoint in keypoints]
-                all_keypoints.extend(keypoints)
+                keypoints = (keypoint.pt[0] + x_start, keypoint.pt[1] + y_start)
+                all_keypoints.append(keypoint)
 
         return all_keypoints
 
