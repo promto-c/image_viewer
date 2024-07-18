@@ -1,7 +1,12 @@
+# Type Checking Imports
+# ---------------------
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple, Union, Optional
+
+if TYPE_CHECKING:
+    from player import PlayerWidget
 
 # Standard Library Imports
 # ------------------------
-from typing import Any, Callable, Dict, List, Tuple, Union, Optional
 from pathlib import Path
 import sys
 import numpy as np
@@ -21,14 +26,15 @@ from entity import TrackPointsEntity
 from nodes.node import Node
 from utils.conversion_utils import to_uint8_gray
 
-if TYPE_CHECKING:
-    from player import PlayerWidget
 
 TRACKER_NODE_ROOT = Path(__file__).parent
 
 # Path to UI file
 TRACKER_NODE_PANEL_UI = TRACKER_NODE_ROOT / 'ui/tracker_panel.ui'
 
+
+# Class Definitions
+# -----------------
 class TrackerNodePanel(QtWidgets.QWidget):
     """A PyQt5 widget with a user interface created from a .ui file.
     
