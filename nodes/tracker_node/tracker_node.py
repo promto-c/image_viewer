@@ -1,10 +1,11 @@
 
 # Standard Library Imports
 # ------------------------
-from typing import Any, Callable, Dict, List, Tuple, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Tuple, Union, Optional
 from pathlib import Path
 import sys
 import numpy as np
+import numpy.typing as npt
 import cv2
 from enum import Enum
 
@@ -165,20 +166,25 @@ class FeatureDetector(Enum):
 
 class Tracker:
 
-    def __init__(self, detector: str = None, parameters: Dict[str, Any] = None):
-
+    def __init__(self, detector: 'FeatureDetector' = None, parameters: Dict[str, Any] = None):
+        self.feature_detector = None
         if detector is not None:
-            self.use_detector(detector, parameters)
+            self.set_detector(detector, parameters)
 
-    def use_detector(self, detector: Union[FeatureDetector, Any], parameters: Dict[str, Any] = {}):
+    def set_detector(self, detector: Union['FeatureDetector', Any], parameters: Dict[str, Any] = {}):
+        """Set the feature detector to be used by the tracker.
+
+        Args:
+            detector (Union[FeatureDetector, Any]): The feature detector or its name.
+            parameters (Dict[str, Any]): Parameters to initialize the feature detector.
+        """
         if isinstance(detector, FeatureDetector):
-            # TODO: Add try, except
             self.feature_detector = detector(**parameters)
         else:
             self.feature_detector = detector
 
     # TODO: Implemnet this
-    def use_matcher(self):
+    def set_matcher(self):
         print('Not implement')
         pass
 
@@ -227,17 +233,46 @@ class Tracker:
         return all_keypoints
 
     @staticmethod
-    def convert_keypoints(keypoints: List[Tuple[float, float]]) -> np.ndarray:
+    def convert_keypoints_to_array(keypoints: List[Tuple[float, float]]) -> npt.NDArray[np.float32]:
+        """Convert a list of keypoints to a NumPy array with shape (N, 1, 2).
+
+        Args:
+            keypoints (List[Tuple[float, float]]): A list of keypoints where each keypoint is a tuple of two floats.
+
+        Returns:
+            np.ndarray: A NumPy array of shape (N, 1, 2) with dtype np.float32, where N is the number of keypoints.
+
+        Examples:
+            >>> keypoints = [(1.0, 2.0), (3.0, 4.0)]
+            >>> Tracker.convert_keypoints_to_array(keypoints)
+            array([[[1., 2.]],
+            <BLANKLINE>
+                   [[3., 4.]]], dtype=float32)
+        """
         keypoints = np.array(keypoints, dtype=np.float32)
         return keypoints.reshape(-1, 1, 2)
 
-    def matching(self, src_image_data: np.ndarray, dst_image_data: np.ndarray, src_keypoints: List[Tuple[float, float]], 
-                 dst_keypoints: List[Tuple[float, float]], win_size=(50, 50)) -> np.ndarray:
+    def matching(self, src_image_data: npt.NDArray[np.uint8], dst_image_data: npt.NDArray[np.uint8],
+                 src_keypoints: List[Tuple[float, float]], dst_keypoints: Optional[List[Tuple[float, float]]] = None,
+                 win_size: Tuple[int, int] = (50, 50)
+                ) -> List[Tuple[float, float]]:
+        """Match keypoints between two images using the Lucas-Kanade method for optical flow.
+
+        Args:
+            src_image_data (np.ndarray): Source image data as a uint8 grayscale array.
+            dst_image_data (np.ndarray): Destination image data as a uint8 grayscale array.
+            src_keypoints (List[Tuple[float, float]]): List of keypoints in the source image.
+            dst_keypoints (Optional[List[Tuple[float, float]]]): List of keypoints in the destination image, if available.
+            win_size (Tuple[int, int]): Window size for optical flow calculation. Default is (50, 50).
+
+        Returns:
+            List[Optional[Tuple[float, float]]]: List of matched keypoints in the destination image. None for keypoints with no match.
+        """
         src_image_data = to_uint8_gray(src_image_data)
         dst_image_data = to_uint8_gray(dst_image_data)
 
-        src_keypoints = self.convert_keypoints(src_keypoints)
-        dst_keypoints = self.convert_keypoints(dst_keypoints) if dst_keypoints is not None else None
+        src_keypoints_array = self.convert_keypoints_to_array(src_keypoints)
+        dst_keypoints_array = self.convert_keypoints_to_array(dst_keypoints) if dst_keypoints is not None else None
 
         # Parameters for Lucas-Kanade optical flow
         lk_params = dict(winSize=win_size, maxLevel=8, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
@@ -247,16 +282,13 @@ class Tracker:
         # dst_pyramid = cv2.buildOpticalFlowPyramid(dst_image_data, win_size, max_level)[1]
 
         # Calculate optical flow
-        dst_keypoints, status, err = cv2.calcOpticalFlowPyrLK(src_image_data, dst_image_data, src_keypoints, dst_keypoints, **lk_params)
+        dst_keypoints_array, status, err = cv2.calcOpticalFlowPyrLK(src_image_data, dst_image_data, src_keypoints_array, dst_keypoints_array, **lk_params)
 
         # Select good points (if status is 1)
-        good_new = [dst_keypoints[i][0] if status[i] else None for i in range(len(dst_keypoints))]
-
-        # good_new = dst_keypoints[status == 1]
-        # good_old = src_keypoints[status == 1]
+        good_new = [dst_keypoints_array[i][0] if status[i] else None for i in range(len(dst_keypoints_array))]
 
         return good_new
-    
+
 class TrackerNode(Node):
 
     # unique node identifier.
@@ -366,7 +398,7 @@ class TrackerNode(Node):
 
     def detect_features(self, src_frame):
         feature_detector_name = self.panel.feature_detector_combo_box.currentData()
-        self.tracker.use_detector(feature_detector_name)
+        self.tracker.set_detector(feature_detector_name)
     
         # TODO: get image from input instead of player
         src_image_data = self.get_input_image_data(src_frame)
@@ -382,7 +414,7 @@ class TrackerNode(Node):
     def track(self, frame_increment: int):
 
         feature_detector_name = self.panel.feature_detector_combo_box.currentData()
-        self.tracker.use_detector(feature_detector_name)
+        self.tracker.set_detector(feature_detector_name)
 
         # TODO: Check dst exist
         src_frame = self.player.current_frame
@@ -449,4 +481,6 @@ def main():
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
     main()
