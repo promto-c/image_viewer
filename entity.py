@@ -17,29 +17,65 @@ if TYPE_CHECKING:
 
 # VBO
 # ---
-def create_vbo(data):
-    vbo = GL.glGenBuffers(1)
-    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
-    GL.glBufferData(GL.GL_ARRAY_BUFFER, np.array(data, dtype=np.float32), GL.GL_STATIC_DRAW)
-    return vbo
+class VBOUtils:
 
-def draw_with_vbo(vbo, draw_mode, num_points):
-    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
-    GL.glEnableVertexAttribArray(0)
-    GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
-    GL.glDrawArrays(draw_mode, 0, num_points)
-    GL.glDisableVertexAttribArray(0)
-    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
+    @staticmethod
+    def create_vbo(data: List[Tuple[float, float]]) -> int:
+        """Create a Vertex Buffer Object (VBO) and upload data to it.
+        
+        Args:
+            data (List[Tuple[float, float]]): The data to upload to the VBO.
+        
+        Returns:
+            int: The ID of the created VBO.
+        """
+        vbo = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, np.array(data, dtype=np.float32), GL.GL_STATIC_DRAW)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)  # Unbind the buffer
+        return vbo
 
-def draw_points(points: List[Tuple[float, float]], point_size: float = 5.0) -> np.uintc:
-    vbo = create_vbo(points)
-    GL.glPointSize(point_size)
-    draw_with_vbo(vbo, GL.GL_POINTS, len(points))
+    @staticmethod
+    def draw_with_vbo(vbo: int, draw_mode: int, num_points: int):
+        """Draw using a Vertex Buffer Object (VBO).
+        
+        Args:
+            vbo (int): The VBO ID.
+            draw_mode (int): The OpenGL drawing mode (e.g., GL.GL_POINTS).
+            num_points (int): The number of points to draw.
+        """
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
+        GL.glEnableVertexAttribArray(0)
+        GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+        GL.glDrawArrays(draw_mode, 0, num_points)
+        GL.glDisableVertexAttribArray(0)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
 
-    return vbo
+    @staticmethod
+    def draw_points(points: List[Tuple[float, float]], point_size: float = 5.0) -> int:
+        """Draw points using a VBO.
 
-def cleanup_vbo(vbo):
-    GL.glDeleteBuffers(1, [vbo])
+        Args:
+            points (List[Tuple[float, float]]): The points to draw.
+            point_size (float): The size of the points.
+
+        Returns:
+            int: The VBO ID.
+        """
+        vbo = VBOUtils.create_vbo(points)
+        GL.glPointSize(point_size)
+        VBOUtils.draw_with_vbo(vbo, GL.GL_POINTS, len(points))
+
+        return vbo
+
+    @staticmethod
+    def cleanup_vbo(vbo: int):
+        """Clean up a VBO by deleting it.
+        
+        Args:
+            vbo (int): The VBO ID to delete.
+        """
+        GL.glDeleteBuffers(1, [vbo])
 
 class Texture2D:
 
@@ -80,13 +116,13 @@ class Texture2D:
             self.release()
             return result
         return wrapper
-    
+
     def set_width(self, width):
         self.width = width
 
-    def set_height(self ,height):
+    def set_height(self, height):
         self.height = height
-    
+
     def set_texture_size(self, width, height):
         self.set_width(width)
         self.set_height(height)
@@ -124,11 +160,11 @@ class Texture2D:
 class RectangleMesh:
     # Define vertices (Position: X, Y)
     VERTICES = np.array([
-            [-1.0, -1.0],  # Bottom left
-            [ 1.0, -1.0],  # Bottom right
-            [ 1.0,  1.0],  # Top right
-            [-1.0,  1.0]   # Top left
-        ], dtype=np.float32)
+        [-1.0, -1.0],  # Bottom left
+        [ 1.0, -1.0],  # Bottom right
+        [ 1.0,  1.0],  # Top right
+        [-1.0,  1.0]   # Top left
+    ], dtype=np.float32)
 
     def __init__(self):
         self.vao = GL.glGenVertexArrays(1)
@@ -189,7 +225,6 @@ class Property(metaclass=PropertyMeta):
         return self._type
 
     def get_value(self, frame: Optional[float] = None) -> Any:
-        # value = self._values.get(frame)
         if frame not in self._values:
             self._values[frame] = copy.deepcopy(self._default_value)
 
@@ -321,7 +356,6 @@ class LayerEntity(Entity):
     def get_transformation_matrix(self):
         return self.transformation_matrix
 
-
 class TrackPointEntity(Entity):
 
     def __init__(self, position: Tuple[float, float], frame: float, color=(0.0, 1.0, 0.0, 1.0), point_size=5.0):
@@ -358,9 +392,9 @@ class TrackPointEntity(Entity):
         gl_position = viewer.canvas_to_gl_coords(position)
 
         viewer.shader_program.set_color(*color)
-        vbo = draw_points([gl_position], point_size=self.point_size)
+        vbo = VBOUtils.draw_points([gl_position], point_size=self.point_size)
 
-        cleanup_vbo(vbo)
+        VBOUtils.cleanup_vbo(vbo)
 
     def set_position(self, position: Tuple[float, float], frame):
         self.props.position.set_value(position, frame)
@@ -371,13 +405,12 @@ class TrackPointEntity(Entity):
 class TrackPointsEntity(Entity):
 
     def __init__(self, point_size=5.0, track_color=(0.0, 1.0, 0.0, 0.5)):
-        """
-        Initializes the tracker entity.
+        """Initializes the tracker entity.
 
         Args:
-        - track_points (List[Tuple[float, float]]): A list of (x, y) points representing the tracked object's location over time.
-        - point_size (float): Size of the tracked points when rendered.
-        - track_color (Tuple[float, float, float, float]): Color of the track.
+            track_points (List[Tuple[float, float]]): A list of (x, y) points representing the tracked object's location over time.
+            point_size (float): Size of the tracked points when rendered.
+            track_color (Tuple[float, float, float, float]): Color of the track.
         """
         self.props = Properties(
             color = Property(
@@ -397,7 +430,7 @@ class TrackPointsEntity(Entity):
                 default_value=dict(),
             ),
         )
-        
+
         self.point_size = point_size
         self.track_color = track_color
 
@@ -411,9 +444,9 @@ class TrackPointsEntity(Entity):
 
         viewer.shader_program.set_color(*self.track_color)
 
-        vbo = draw_points(gl_points, point_size=self.point_size)
+        vbo = VBOUtils.draw_points(gl_points, point_size=self.point_size)
 
-        cleanup_vbo(vbo)
+        VBOUtils.cleanup_vbo(vbo)
 
     def add_track_points(self, frame, points: List[Tuple[float, float]]):
 
@@ -471,11 +504,8 @@ class ShapeEntity(Entity):
         return tuple(point)
 
     def toggle_control_points(self):
-        """
-        Toggle the visibility of control points.
-        """
+        """Toggle the visibility of control points."""
         self.show_control_points = not self.show_control_points
-
 
     def render(self, frame: Union[float, None], viewer: 'ImageViewerGLWidget'):
         # Ensure blending and depth testing are disabled for 2D rendering
@@ -497,33 +527,30 @@ class ShapeEntity(Entity):
             self._render_control_points(viewer.shader_program)
 
     def _render_filled_shape(self, curve_points, shader_program):
-        vbo = create_vbo(curve_points)
+        vbo = VBOUtils.create_vbo(curve_points)
 
         shader_program.set_color(*self.fill_color)
-        
-        draw_with_vbo(vbo, GL.GL_POLYGON, len(curve_points))
-        cleanup_vbo(vbo)
+        VBOUtils.draw_with_vbo(vbo, GL.GL_POLYGON, len(curve_points))
+
+        VBOUtils.cleanup_vbo(vbo)
 
     def _render_outline(self, curve_points, shader_program):
-
-        vbo = create_vbo(curve_points)
+        vbo = VBOUtils.create_vbo(curve_points)
         GL.glLineWidth(self.line_width)
 
         shader_program.set_color(*self.line_color)
 
-        draw_with_vbo(vbo, GL.GL_LINE_LOOP, len(curve_points))
-        cleanup_vbo(vbo)
+        VBOUtils.draw_with_vbo(vbo, GL.GL_LINE_LOOP, len(curve_points))
+        VBOUtils.cleanup_vbo(vbo)
 
     def _render_control_points(self, shader_program):
-
         shader_program.set_color(0.1, 0.5, 0.8, 0.5)
-        vbo = draw_points(self.points)
+        vbo = VBOUtils.draw_points(self.points)
 
-        cleanup_vbo(vbo)
+        VBOUtils.cleanup_vbo(vbo)
 
     def add_point(self, point):
-        """
-        Add a new control point to the shape.
+        """Add a new control point to the shape.
         
         Args:
             point (tuple): A tuple (x, y) representing the control point to add.
