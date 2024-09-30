@@ -489,19 +489,55 @@ class ShapeEntity(Entity):
                 # Default to a uniform knot vector
                 self.knot_vector = np.array([0]*degree + list(range(len(points) - degree + 1)) + [len(points) - degree]*(degree))
 
-    def bspline_basis(self, i, k, t):
-        if k == 0:
-            return 1.0 if self.knot_vector[i] <= t < self.knot_vector[i + 1] else 0.0
-        else:
-            d1 = (t - self.knot_vector[i]) / (self.knot_vector[i + k] - self.knot_vector[i]) if self.knot_vector[i + k] - self.knot_vector[i] != 0 else 0
-            d2 = (self.knot_vector[i + k + 1] - t) / (self.knot_vector[i + k + 1] - self.knot_vector[i + 1]) if self.knot_vector[i + k + 1] - self.knot_vector[i + 1] != 0 else 0
-            return d1 * self.bspline_basis(i, k - 1, t) + d2 * self.bspline_basis(i + 1, k - 1, t)
+    def get_bspline_point(self, t: float) -> Tuple[float, float]:
+        """Compute the B-spline point at parameter t.
+        """
+        k = self.find_knot_interval(t)
+        point = self.de_boor(k, t, self.knot_vector, self.points, self.degree)
+        return point
 
-    def get_bspline_point(self, t):
-        point = np.zeros(2)
-        for i, p in enumerate(self.points):
-            point += self.bspline_basis(i, self.degree, t) * p
-        return tuple(point)
+    def find_knot_interval(self, t: float) -> int:
+        """Find the knot interval index for the given parameter value t.
+        """
+        for i in range(len(self.knot_vector) - 1):
+            if self.knot_vector[i] <= t < self.knot_vector[i + 1]:
+                return i
+        return len(self.knot_vector) - self.degree - 2  # Handle edge case
+
+    @staticmethod
+    def de_boor(k: int, x: float, t: List[float], c: List[Tuple[float, float]], p: int) -> Tuple[float, float]:
+        """Compute the B-spline point using the De Boor algorithm.
+
+        Args:
+            k (int): Index of the knot interval that contains x.
+            x (float): Parameter value.
+            t (List[float]): Knot vector.
+            c (List[Tuple[float, float]]): Control points.
+            p (int): Degree of the B-spline.
+
+        Returns:
+            Tuple[float, float]: The computed B-spline point.
+        """
+        # Handle cases where there are less control points than the degree + 1
+        if len(c) <= p:
+            return c[0]  # Return the single control point if available
+
+        # Adjust the index range to ensure it doesn't go out of bounds
+        max_index = min(len(c) - 1, k)  # Maximum index we can access based on k
+        d: List[Tuple[float, float]] = [c[min(max_index, j + k - p)] for j in range(0, p + 1)]
+
+        for r in range(1, p + 1):
+            for j in range(p, r - 1, -1):
+                # Check if the denominator is zero to avoid division by zero errors
+                denominator = t[j + 1 + k - r] - t[j + k - p]
+                if denominator == 0:
+                    alpha = 0.0  # If the denominator is zero, set alpha to 0
+                else:
+                    alpha = (x - t[j + k - p]) / denominator
+
+                d[j] = (1.0 - alpha) * d[j - 1] + alpha * d[j]
+
+        return d[p]
 
     def toggle_control_points(self):
         """Toggle the visibility of control points."""
