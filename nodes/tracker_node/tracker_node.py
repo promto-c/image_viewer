@@ -195,7 +195,9 @@ class Tracker:
         pass
 
     # TODO: Set default to use whole image
-    def detect_features(self, src_image_data: np.ndarray, grid_partitions: Tuple[int, int] = (9, 7)) -> List[Tuple[float, float]]:
+    def detect_features(self, src_image_data: np.ndarray, grid_partitions: Tuple[int, int] = (9, 7), 
+                        max_keypoints_per_cell: int = 1, existing_features: List[Tuple[float, float]] = None
+                        ) -> List[Tuple[float, float]]:
         """Detect keypoints in each grid cell of the image.
 
         Args:
@@ -217,10 +219,29 @@ class Tracker:
         cell_height = height // num_rows
         cell_width = width // num_columns
 
-        all_keypoints = []
+        # Map existing features to grid cells
+        cells_with_features = set()
+        if existing_features:
+            for position in existing_features:
+                if position is None:
+                    continue
+                x, y = position[0], position[1]
 
+                # Calculate grid cell indices for the feature point
+                cell_i = int(y // cell_height)
+                cell_j = int(x // cell_width)
+                # Clamp the indices to be within the grid range
+                cell_i = min(max(cell_i, 0), num_rows - 1)
+                cell_j = min(max(cell_j, 0), num_columns - 1)
+                cells_with_features.add((cell_i, cell_j))
+
+        all_keypoints = []
         for i in range(num_rows):
             for j in range(num_columns):
+                if (i, j) in cells_with_features:
+                    # Skip cells that already have features
+                    continue
+
                 # Define the region of interest (ROI) for the current cell
                 y_end = (y_start := i * cell_height) + cell_height
                 x_end = (x_start := j * cell_width) + cell_width
@@ -232,11 +253,11 @@ class Tracker:
                 keypoints = self.feature_detector.detect(cell, None)
 
                 # Sort keypoints by their response and keep the top keypoint
-                keypoint = sorted(keypoints, key=lambda k: k.response, reverse=True)[0]
+                keypoints = sorted(keypoints, key=lambda k: k.response, reverse=True)[:max_keypoints_per_cell]
 
                 # Adjust keypoint positions to the global image (because they are currently local to the cell)
-                keypoints = (keypoint.pt[0] + x_start, keypoint.pt[1] + y_start)
-                all_keypoints.append(keypoint)
+                keypoints = [(keypoint.pt[0] + x_start, keypoint.pt[1] + y_start) for keypoint in keypoints]
+                all_keypoints.extend(keypoints)
 
         return all_keypoints
 
@@ -262,8 +283,7 @@ class Tracker:
 
     def matching(self, src_image_data: npt.NDArray[np.uint8], dst_image_data: npt.NDArray[np.uint8],
                  src_keypoints: List[Tuple[float, float]], dst_keypoints: Optional[List[Tuple[float, float]]] = None,
-                 win_size: Tuple[int, int] = (50, 50)
-                ) -> List[Tuple[float, float]]:
+                 win_size: Optional[Tuple[int, int]] = None) -> List[Optional[Tuple[float, float]]]:
         """Match keypoints between two images using the Lucas-Kanade method for optical flow.
 
         Args:
@@ -271,7 +291,7 @@ class Tracker:
             dst_image_data (np.ndarray): Destination image data as a uint8 grayscale array.
             src_keypoints (List[Tuple[float, float]]): List of keypoints in the source image.
             dst_keypoints (Optional[List[Tuple[float, float]]]): List of keypoints in the destination image, if available.
-            win_size (Tuple[int, int]): Window size for optical flow calculation. Default is (50, 50).
+            win_size (Optional[Tuple[int, int]]): Window size for optical flow calculation. If None, it will be set dynamically.
 
         Returns:
             List[Optional[Tuple[float, float]]]: List of matched keypoints in the destination image. None for keypoints with no match.
@@ -282,18 +302,42 @@ class Tracker:
         src_keypoints_array = self.convert_keypoints_to_array(src_keypoints)
         dst_keypoints_array = self.convert_keypoints_to_array(dst_keypoints) if dst_keypoints is not None else None
 
+        # Get image dimensions
+        height, width = src_image_data.shape[:2]
+
+        # Dynamically set window size if not provided
+        if win_size is None:
+            # Set window size proportional to image size (e.g., 1/20th of the image dimensions)
+            win_size = (max(15, width // 20), max(15, height // 20))
+
+        # Dynamically calculate maxLevel based on image size
+        min_size = 16  # Minimum size of the smallest pyramid level
+        max_pyramid_levels = int(np.floor(np.log2(min(height, width) / min_size)))
+        maxLevel = max(0, max_pyramid_levels)
+
         # Parameters for Lucas-Kanade optical flow
-        lk_params = dict(winSize=win_size, maxLevel=8, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+        lk_params = dict(
+            winSize=win_size,
+            maxLevel=maxLevel,
+            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03),
+        )
 
-        # Build pyramids
-        # src_pyramid = cv2.buildOpticalFlowPyramid(src_image_data, win_size, max_level)[1]
-        # dst_pyramid = cv2.buildOpticalFlowPyramid(dst_image_data, win_size, max_level)[1]
+        # Calculate optical flow without precomputing pyramids
+        dst_keypoints_array, status, err = cv2.calcOpticalFlowPyrLK(
+            src_image_data, dst_image_data,
+            src_keypoints_array, dst_keypoints_array,
+            **lk_params
+        )
 
-        # Calculate optical flow
-        dst_keypoints_array, status, err = cv2.calcOpticalFlowPyrLK(src_image_data, dst_image_data, src_keypoints_array, dst_keypoints_array, **lk_params)
-
-        # Select good points (if status is 1)
-        good_new = [dst_keypoints_array[i][0] if status[i] else None for i in range(len(dst_keypoints_array))]
+        # Check if dst_keypoints_array is not None
+        if dst_keypoints_array is not None:
+            # Select good points (if status is 1)
+            good_new = [
+                tuple(dst_keypoints_array[i][0]) if status[i] else None
+                for i in range(len(dst_keypoints_array))
+            ]
+        else:
+            good_new = [None] * len(src_keypoints_array)
 
         return good_new
 
@@ -440,7 +484,6 @@ class TrackerNode(Node):
 
         if not track_point_ids:
             id_to_track_point = self.detect_features(src_frame)
-            # # Add points to the tracker entity
             track_point_ids = id_to_track_point.keys()
 
         src_keypoints = [id_to_track_point[track_point_id][src_frame] for track_point_id in track_point_ids]
