@@ -1,8 +1,7 @@
 from pathlib import Path
-
+import numpy as np
 from qtpy import QtCore, QtGui, QtWidgets
 
-import numpy as np
 
 SHADERS_DIRECTORY = Path(__file__).parent
 VIEWER_VERTEX_SHADER_PATH = SHADERS_DIRECTORY / 'viewer_vertex.glsl'

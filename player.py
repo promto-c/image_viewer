@@ -45,37 +45,201 @@ class ImageLoader(QtCore.QRunnable):
         except RuntimeError as e:
             pass
 
+class GroupWidget(QtWidgets.QWidget):
+    ...
+
+# NOTE: WIP
+class ControllerBarWidget(QtWidgets.QToolBar):
+    """A toolbar for controlling playback and frame settings in the PlayerWidget."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.tabler_icon = TablerQIcon(opacity=0.8)
+        self.setMovable(False)  # Keep toolbar fixed
+        self.__init_ui()
+
+    def __init_ui(self):
+        """Initialize the UI components of the controller bar."""
+        
+        # Playback Controls
+        self.play_backward_button = QtWidgets.QPushButton(self.tabler_icon.flip.player_play, '', self)
+        self.stop_button = QtWidgets.QPushButton(self.tabler_icon.player_stop, '', self)
+        self.play_forward_button = QtWidgets.QPushButton(self.tabler_icon.player_play, '', self)
+
+        # play_backward_button
+        self.play_backward_button.setStyleSheet(
+            "QPushButton {\n"
+            "  border-top-right-radius: 0;\n"
+            "  border-bottom-right-radius: 0;\n"
+            "  border-right: 1px;\n"
+            "}"
+        )
+
+        # stop_button
+        self.stop_button.setStyleSheet(
+            "QPushButton {\n"
+            "  border-radius: 0;\n"
+            "  border-left:1px;\n"
+            "  border-right: 1px;\n"
+            "}"
+        )
+
+        # play_forward_button
+        self.play_forward_button.setStyleSheet(
+            "QPushButton {\n"
+            "  border-top-left-radius: 0;\n"
+            "  border-bottom-left-radius: 0;\n"
+            "  border-left: 1px;\n"
+            "}"
+        )
+
+        # playback_widget
+        self.playback_widget = QtWidgets.QWidget(self)
+        self.playback_layout = QtWidgets.QHBoxLayout(self.playback_widget)
+        self.playback_layout.setSpacing(0)
+        self.playback_layout.setContentsMargins(0, 0, 0, 0)
+        # Add playback buttons to toolbar
+        self.playback_layout.addWidget(self.play_backward_button)
+        self.playback_layout.addWidget(self.stop_button)
+        self.playback_layout.addWidget(self.play_forward_button)
+
+        self.addWidget(self.playback_widget)
+
+        # Separator for grouping
+        self.addSeparator()
+
+        # Playback Speed Controls
+        self.playback_speed_button = QtWidgets.QPushButton(self.tabler_icon.keyframes, '', self)
+        self.playback_speed_button.setEnabled(False)
+        self.playback_speed_combo_box = QtWidgets.QComboBox(self)
+        self.playback_speed_combo_box.addItems(["24", "60"])
+        self.playback_speed_combo_box.setEditable(True)
+        self.playback_speed_combo_box.setMinimumSize(QtCore.QSize(48, 0))
+
+        # Add playback speed controls to toolbar
+        self.addWidget(self.playback_speed_button)
+        self.addWidget(self.playback_speed_combo_box)
+
+        # Separator for grouping
+        self.addSeparator()
+
+        # Frame Range Controls
+        self.start_frame_button = QtWidgets.QPushButton(self.tabler_icon.brackets_contain_start, '', self)
+        self.start_frame_spin_box = QtWidgets.QSpinBox(self)
+        self.start_frame_spin_box.setButtonSymbols(QtWidgets.QSpinBox.NoButtons)
+        
+        self.end_frame_spin_box = QtWidgets.QSpinBox(self)
+        self.end_frame_spin_box.setButtonSymbols(QtWidgets.QSpinBox.NoButtons)
+        
+        self.end_frame_button = QtWidgets.QPushButton(self.tabler_icon.brackets_contain_end, '', self)
+
+        # NOTE: Style
+        # ---
+        # playback_speed_button
+        self.playback_speed_button.setObjectName("playback_speed_button")
+        self.playback_speed_button.setEnabled(False)
+        self.playback_speed_button.setStyleSheet(
+            "QPushButton {\n"
+            "  border-top-right-radius: 0;\n"
+            "  border-bottom-right-radius: 0;\n"
+            "  border-right: 0px;\n"
+            "}"
+        )
+
+        # playback_speed_combo_box
+        self.playback_speed_combo_box.setMinimumSize(QtCore.QSize(48, 0))
+        self.playback_speed_combo_box.setStyleSheet(
+            "QComboBox {\n"
+            "  border-top-left-radius: 0;\n"
+            "  border-bottom-left-radius: 0;\n"
+            "}"
+        )
+        self.playback_speed_combo_box.setEditable(True)
+        self.playback_speed_combo_box.setMaxCount(99)
+        self.playback_speed_combo_box.addItem("24")
+        self.playback_speed_combo_box.addItem("60")
+
+        # start_frame_button
+        self.start_frame_button.setEnabled(False)
+        self.start_frame_button.setMaximumSize(QtCore.QSize(22, 16777215))
+        self.start_frame_button.setStyleSheet(
+            "QPushButton {\n"
+            "  border-top-right-radius: 0;\n"
+            "  border-bottom-right-radius: 0;\n"
+            "  border-right: 0px;\n"
+            "}"
+        )
+
+        # start_frame_spin_box
+        self.start_frame_spin_box.setStyleSheet(
+            "QSpinBox {\n"
+            "  border-top-left-radius: 0;\n"
+            "  border-bottom-left-radius: 0;\n"
+            "}"
+        )
+
+        # end_frame_spin_box
+        self.end_frame_spin_box.setStyleSheet(
+            "QSpinBox {\n"
+            "  border-top-right-radius: 0;\n"
+            "  border-bottom-right-radius: 0;\n"
+            "}"
+        )
+        self.end_frame_spin_box.setButtonSymbols(QtWidgets.QSpinBox.NoButtons)
+        self.end_frame_spin_box.setMaximum(65535)
+
+        # end_frame_button
+        self.end_frame_button.setEnabled(False)
+        self.end_frame_button.setMaximumSize(QtCore.QSize(22, 16777215))
+        self.end_frame_button.setStyleSheet(
+            "QPushButton {\n"
+            "  border-top-left-radius: 0;\n"
+            "  border-bottom-left-radius: 0;\n"
+            "  border-left: 0px;\n"
+            "}"
+        )
+        # ---
+
+        # Wrap the indicator layout in a QWidget for the toolbar
+        frame_indicator_widget = QtWidgets.QWidget(self)
+
+        # Add frame range controls to toolbar
+        self.addWidget(self.start_frame_button)
+        self.addWidget(self.start_frame_spin_box)
+        self.addWidget(frame_indicator_widget)
+        self.addWidget(self.end_frame_spin_box)
+        self.addWidget(self.end_frame_button)
+
+        # Separator for grouping
+        self.addSeparator()
+
+        # Current Frame Control
+        self.current_frame_spin_box = QtWidgets.QSpinBox(self)
+        self.current_frame_spin_box.setButtonSymbols(QtWidgets.QSpinBox.NoButtons)
+        self.current_frame_spin_box.setStyleSheet(
+            "QSpinBox {\n"
+            "  border-radius: 0px;\n"
+            "}"
+        )
+        self.current_frame_spin_box.setMaximum(65535)
+
+        self.addWidget(self.current_frame_spin_box)
+
+        # Frame Indicator Bar and Slider
+        self.frame_indicator_bar = FrameIndicatorBar()
+        self.frame_indicator_bar.setMaximumHeight(2)
+        self.frame_slider = QtWidgets.QSlider(self)
+        self.frame_slider.setOrientation(QtCore.Qt.Orientation.Horizontal)
+        
+        # Frame indicator layout within toolbar
+        frame_indicator_layout = QtWidgets.QVBoxLayout(frame_indicator_widget)
+        frame_indicator_layout.setSpacing(0)
+        frame_indicator_layout.addWidget(self.frame_indicator_bar)
+        frame_indicator_layout.addWidget(self.frame_slider)
+
 class PlayerWidget(QtWidgets.QWidget):
 
-    UI = PLAYER_WIDGET_UI
     TITLE = 'Player'
-
-    prefetch_button: QtWidgets.QPushButton
-    num_cores_spin_box: QtWidgets.QSpinBox
-    cpu_button: QtWidgets.QPushButton
-
-    gain_button: QtWidgets.QPushButton
-    gamma_button: QtWidgets.QPushButton
-    lift_button: QtWidgets.QPushButton
-
-    top_right_layout: QtWidgets.QHBoxLayout
-    center_layout: QtWidgets.QVBoxLayout
-    frame_indicator_layout: QtWidgets.QVBoxLayout
-
-    playback_speed_button: QtWidgets.QPushButton
-    playback_speed_combo_box: QtWidgets.QComboBox
-
-    current_frame_spin_box: QtWidgets.QSpinBox
-    play_backward_button: QtWidgets.QPushButton
-    stop_button: QtWidgets.QPushButton
-    play_forward_button: QtWidgets.QPushButton
-
-    start_frame_button: QtWidgets.QPushButton
-    end_frame_button: QtWidgets.QPushButton
-
-    start_frame_spin_box: QtWidgets.QSpinBox
-    frame_slider: QtWidgets.QSlider
-    end_frame_spin_box: QtWidgets.QSpinBox
 
     image_loading_signal = QtCore.Signal(int)
     image_loaded_signal = QtCore.Signal(int)
@@ -84,8 +248,6 @@ class PlayerWidget(QtWidgets.QWidget):
     
     def __init__(self, input_path: str = str(), parent=None):
         super().__init__(parent)
-        uic.loadUi(str(self.UI), self)
-
         if input_path:
             self.image = ImageSequence(input_path)
         else:
@@ -111,18 +273,6 @@ class PlayerWidget(QtWidgets.QWidget):
 
         self.tabler_icon = TablerQIcon(opacity=0.8)
 
-        # Widget
-        # ------
-        self.gain_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
-        self.gain_spin_box_widget.setToolTip('Gain')
-        self.gamma_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
-        self.gamma_spin_box_widget.setToolTip('Gamma')
-        self.saturation_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
-        self.saturation_spin_box_widget.setToolTip('Saturation')
-
-        self.frame_indicator_bar = FrameIndicatorBar()
-        self.frame_indicator_bar.setMaximumHeight(2)
-
     def __init_ui(self):
         """Initialize the UI of the widget.
         """
@@ -130,62 +280,141 @@ class PlayerWidget(QtWidgets.QWidget):
         # -----------------
         self.setWindowTitle(self.TITLE)
         self.setWindowIcon(TablerQIcon.player_play)
+        self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+
+        # Main Layout
+        # -----------
+        self.main_vertical_layout = QtWidgets.QVBoxLayout(self)
+        self.main_vertical_layout.setContentsMargins(6, 6, 6, 6)
+        # Viewer
+        self.main_vertical_layout.addWidget(self.viewer)
+
+
+        
+        # top_left_widget
+        self.top_left_widget = QtWidgets.QWidget(self)
+        self.top_left_layout = QtWidgets.QHBoxLayout(self.top_left_widget)
+        self.top_left_layout.setContentsMargins(0, 0, 0, 0)
+
+        # prefetch_button
+        self.prefetch_button = QtWidgets.QPushButton(self.top_left_widget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
+        self.prefetch_button.setSizePolicy(sizePolicy)
+        self.prefetch_button.setStyleSheet(
+            "QPushButton {\n"
+            "  border-top-right-radius: 0;\n"
+            "  border-bottom-right-radius: 0;\n"
+            "  border-right: 0px;\n"
+            "}"
+        )
+        self.prefetch_button.setText("Prefetch")
+
+        # num_cores_spin_box
+        self.num_cores_spin_box = QtWidgets.QSpinBox(self.top_left_widget)
+        self.num_cores_spin_box.setStyleSheet(
+            "QSpinBox {\n"
+            "  border-radius: 0px;\n"
+            "}"
+        )
+        self.num_cores_spin_box.setButtonSymbols(QtWidgets.QSpinBox.NoButtons)
+        self.num_cores_spin_box.setValue(8)
+
+        # cpu_button
+        self.cpu_button = QtWidgets.QPushButton(self.tabler_icon.cpu_2, '', self.top_left_widget)
+        self.cpu_button.setEnabled(False)
+        self.cpu_button.setMaximumSize(QtCore.QSize(22, 16777215))
+        self.cpu_button.setStyleSheet(
+            "QPushButton {\n"
+            "  border-top-left-radius: 0;\n"
+            "  border-bottom-left-radius: 0;\n"
+            "  border-left: 0px;\n"
+            "}"
+        )
+        self.cpu_button.setText("")
+
+        # Add widgets to top_left_layout
+        self.top_left_layout.addWidget(self.prefetch_button)
+        self.top_left_layout.addWidget(self.num_cores_spin_box)
+        self.top_left_layout.addWidget(self.cpu_button)
+
+        # Create Layouts
+        # --------------
+        self.overlay_layout = QtWidgets.QVBoxLayout(self.viewer)
+        self.overlay_top_layout = QtWidgets.QHBoxLayout()
+        self.overlay_top_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.overlay_layout.addLayout(self.overlay_top_layout)
+
+        # Create Widgets
+        # --------------
+        self.view_tool_bar = QtWidgets.QToolBar(self)
+        self.view_tool_bar.setStyleSheet('''
+            QToolBar {
+                background: transparent;
+            }
+
+            QPushButton {
+                border-top-right-radius: 0;
+                border-bottom-right-radius: 0;
+                border-right: 0px;
+            }
+
+            QDoubleSpinBox {
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+            }
+        ''')
+
+        self.gain_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
+        self.gain_spin_box_widget.setIcon(self.tabler_icon.flip.brightness_half)
+        self.gain_spin_box_widget.setToolTip('Gain')
+        self.gamma_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
+        self.gamma_spin_box_widget.setIcon(self.tabler_icon.contrast)
+        self.gamma_spin_box_widget.setToolTip('Gamma')
+        self.saturation_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
+        self.saturation_spin_box_widget.setIcon(self.tabler_icon.color_filter)
+        self.saturation_spin_box_widget.setToolTip('Saturation')
 
         # Top Right
         # ---------
-        self.top_right_layout.addWidget(self.gain_spin_box_widget)
-        self.top_right_layout.addWidget(self.gamma_spin_box_widget)
-        self.top_right_layout.addWidget(self.saturation_spin_box_widget)  # Add saturation widget to layout
+        self.view_tool_bar.addWidget(self.gain_spin_box_widget)
+        self.view_tool_bar.addWidget(self.gamma_spin_box_widget)
+        self.view_tool_bar.addWidget(self.saturation_spin_box_widget)
 
-        # Set the focus policy to accept focus, and set the initial focus
-        self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
-        self.setFocus()
+        self.overlay_top_layout.addWidget(self.top_left_widget, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.overlay_top_layout.addWidget(self.view_tool_bar, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
 
-        # Viewer
+        # Bottom
         # ------
-        self.set_image(self.image)
-        self.center_layout.addWidget(self.viewer)
+        # Controller bar at the bottom
+        self.controller_bar = ControllerBarWidget(parent=self)
+        self.overlay_layout.addWidget(self.controller_bar, alignment=QtCore.Qt.AlignmentFlag.AlignBottom)
 
-        self.frame_indicator_layout.insertWidget(0, self.frame_indicator_bar)
+        # Add reference
+        self.frame_indicator_bar = self.controller_bar.frame_indicator_bar
+        self.frame_slider = self.controller_bar.frame_slider
+        self.current_frame_spin_box = self.controller_bar.current_frame_spin_box
+        self.start_frame_spin_box = self.controller_bar.start_frame_spin_box
+        self.end_frame_spin_box = self.controller_bar.end_frame_spin_box
 
         # Playback Controls
         # -----------------
-
-        # 
+        self.set_image(self.image)
         self.set_playback_speed()
-
-        # Set Icons
-        # ---------
-        self.cpu_button.setIcon(self.tabler_icon.cpu_2)
-
-        self.gain_spin_box_widget.setIcon(self.tabler_icon.flip.brightness_half)
-        self.gamma_spin_box_widget.setIcon(self.tabler_icon.contrast)
-        self.saturation_spin_box_widget.setIcon(self.tabler_icon.color_filter)
-
-        self.play_backward_button.setIcon(self.tabler_icon.flip.player_play)
-        self.stop_button.setIcon(self.tabler_icon.player_stop)
-        self.play_forward_button.setIcon(self.tabler_icon.player_play)
-
-        self.playback_speed_button.setIcon(self.tabler_icon.keyframes)
-
-        self.start_frame_button.setIcon(self.tabler_icon.brackets_contain_start)
-        self.end_frame_button.setIcon(self.tabler_icon.brackets_contain_end)
 
     def __init_signal_connections(self):
         """Initialize signal-slot connections.
         """
         self.prefetch_button.clicked.connect(self.prefetch)
 
-        self.playback_speed_combo_box.currentTextChanged.connect(self.set_playback_speed)
-        
+        self.controller_bar.playback_speed_combo_box.currentTextChanged.connect(self.set_playback_speed)
+
         self.play_forward_timer.timeout.connect(self.next_frame)
         self.play_backward_timer.timeout.connect(self.previous_frame)
 
-        self.play_forward_button.clicked.connect(self.play_forward)
-        self.play_backward_button.clicked.connect(self.play_backward)
-        self.stop_button.clicked.connect(self.stop_playback)
+        self.controller_bar.play_forward_button.clicked.connect(self.play_forward)
+        self.controller_bar.play_backward_button.clicked.connect(self.play_backward)
+        self.controller_bar.stop_button.clicked.connect(self.stop_playback)
 
-        # self.lift_spin_box.valueChanged.connect(self.set_lift)
         self.gamma_spin_box_widget.valueChanged.connect(self.viewer.set_gamma)
         self.gain_spin_box_widget.valueChanged.connect(self.viewer.set_gain)
         self.saturation_spin_box_widget.valueChanged.connect(self.viewer.set_saturation)
