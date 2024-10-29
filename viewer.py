@@ -13,6 +13,7 @@ from OpenGL import GL
 from qtpy import QtCore, QtGui, QtWidgets
 
 from blackboard.utils.image_utils import ImageSequence
+from blackboard.utils.key_binder import KeyBinder
 
 # Local Imports
 # -------------
@@ -46,19 +47,18 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         super().__init__(parent)
 
         format = QtGui.QSurfaceFormat()
-        format.setSamples(4)  # Change the number for more or less anti-aliasing
+        format.setSamples(4)
         QtGui.QSurfaceFormat.setDefaultFormat(format)
 
         # Store the arguments
         self.image = image
 
-        # Set up the initial values
+        # Initialize setup
         self.__init_attributes()
-        # Set up signal connections
         self.__init_signal_connections()
 
     def __init_attributes(self):
-        """Set up the initial values for the widget.
+        """Initialize the attributes.
         """
         # Attributes
         # ----------
@@ -69,10 +69,11 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
         self.current_frame = 0.0
 
-        # Set default values for lift, gamma, and gain
+        # Initialize values for lift, gamma, gain, and saturation
         self.lift = 0.0
         self.gamma = 1.0
         self.gain = 1.0
+        self.saturation = 1.0
 
         self.pixel_aspect_ratio = 1.0
 
@@ -85,7 +86,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.set_image(self.image)
 
     # TODO: Refactor
-    def set_image(self, image: Union[np.ndarray, Tuple[int, int], ImageSequence, Node]) -> None:
+    def set_image(self, image: Union[np.ndarray, Tuple[int, int], ImageSequence, Node]):
         """Set the image to be displayed.
 
         Args:
@@ -132,7 +133,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         """
         # Key Binds
         # --------
-        self.key_bind('F', self.fit_in_view)
+        KeyBinder.bind_key('F', self, self.fit_in_view, context=QtCore.Qt.ShortcutContext.WindowShortcut)
 
     # Private Methods
     # ---------------
@@ -146,10 +147,12 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     @_use_shader
     def _update_viewer_adjustments(self):
-        # Set the uniform values for image adjustments
+        """Set the uniform values for image adjustments.
+        """
         self.shader_program.set_lift(self.lift)
         self.shader_program.set_gamma(self.gamma)
         self.shader_program.set_gain(self.gain)
+        self.shader_program.set_saturation(self.saturation)
 
     @_use_shader
     def _update_viewer_transformation(self):
@@ -185,7 +188,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
             for entity in self.image.vector_entities:
                 entity.render(self.current_frame, self)
 
-    def _handle_viewer_zoom(self, zoom_delta: float, pivot_coords: QtCore.QPoint) -> None:
+    def _handle_viewer_zoom(self, zoom_delta: float, pivot_coords: QtCore.QPoint):
         """Handle the viewer zoom based on the zoom delta and wheel event
 
         Args:
@@ -253,6 +256,12 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         self.gain = gain_value
         self.update()
 
+    def set_saturation(self, saturation_value: float):
+        """Set the saturation level for the image display.
+        """
+        self.saturation = saturation_value
+        self.update()
+
     # def set_canvas_size(self, width: int, height: int):
     #     self.canvas_width, self.canvas_height = width, height
 
@@ -312,12 +321,6 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         # Update the widget to reset the zoom level and offset
         self.update()
 
-    def key_bind(self, key_sequence: str, function: Callable):
-        # Create a shortcut
-        shortcut = QtWidgets.QShortcut(QtGui.QKeySequence(key_sequence), self)
-        # Connect the activated signal of the shortcut to the slot
-        shortcut.activated.connect(function)
-
     # OpenGL Initialization and Setup
     # -------------------------------
     def initializeGL(self):
@@ -336,7 +339,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         # Adjust the view to fit the content.
         self.fit_in_view()
 
-    def paintGL(self) -> None:
+    def paintGL(self):
         """Paint the OpenGL widget.
         """
         self._update_viewer_transformation()
@@ -349,7 +352,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
 
     # Event Handling or Override Methods
     # ----------------------------------
-    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
+    def mousePressEvent(self, event: QtGui.QMouseEvent):
         """Handle mouse press event.
 
         Args:
@@ -362,7 +365,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         elif event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.left_mouse_pressed.emit(event)
 
-    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
         """Handle mouse release event.
 
         Args:
@@ -371,7 +374,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.left_mouse_released.emit(event)
 
-    def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent):
         """Handle mouse move event.
 
         Args:
@@ -394,7 +397,7 @@ class ImageViewerGLWidget(QtWidgets.QOpenGLWidget):
         """
         return QtCore.QSize(self.canvas_width, self.canvas_height)
 
-    def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
+    def wheelEvent(self, event: QtGui.QWheelEvent):
         """Method to handle wheel events
 
         Args:

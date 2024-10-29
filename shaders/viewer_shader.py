@@ -13,17 +13,19 @@ class ViewerShaderProgram(QtGui.QOpenGLShaderProgram):
     def __init__(self, parent: QtWidgets.QOpenGLWidget):
         super().__init__(parent.context())
 
-        # self.shader_program = QtGui.QOpenGLShaderProgram(self.context())
+        # Add shaders from files
         self.addShaderFromSourceFile(QtGui.QOpenGLShader.ShaderTypeBit.Vertex, VIEWER_VERTEX_SHADER_PATH.as_posix())
         self.addShaderFromSourceFile(QtGui.QOpenGLShader.ShaderTypeBit.Fragment, VIEWER_FRAGMENT_SHADER_PATH.as_posix())
         self.link()
 
         # Set uniform locations
         self.uniform_loc_transformation = self.uniformLocation("transformation")
-        # Set uniform locations, image adjustments
+        
+        # Set uniform locations for image adjustments
         self.uniform_loc_lift = self.uniformLocation("lift")
         self.uniform_loc_gamma = self.uniformLocation("gamma")
         self.uniform_loc_gain = self.uniformLocation("gain")
+        self.uniform_loc_saturation = self.uniformLocation("saturation")
 
         self.uniform_loc_is_texture = self.uniformLocation("isTexture")
         self.uniform_loc_custom_color = self.uniformLocation("color")
@@ -46,6 +48,9 @@ class ViewerShaderProgram(QtGui.QOpenGLShaderProgram):
 
     def set_gain(self, gain: float):
         self.setUniformValue(self.uniform_loc_gain, gain)
+
+    def set_saturation(self, saturation: float):
+        self.setUniformValue(self.uniform_loc_saturation, saturation)
 
     def set_tranformation(self, tranformation: np.ndarray):
         self.setUniformValue(self.uniform_loc_transformation, QtGui.QMatrix4x4(tranformation.flatten()))

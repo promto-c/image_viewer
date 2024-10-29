@@ -62,7 +62,6 @@ class PlayerWidget(QtWidgets.QWidget):
     center_layout: QtWidgets.QVBoxLayout
     frame_indicator_layout: QtWidgets.QVBoxLayout
 
-
     playback_speed_button: QtWidgets.QPushButton
     playback_speed_combo_box: QtWidgets.QComboBox
 
@@ -80,6 +79,8 @@ class PlayerWidget(QtWidgets.QWidget):
 
     image_loading_signal = QtCore.Signal(int)
     image_loaded_signal = QtCore.Signal(int)
+
+    frame_changed = QtCore.Signal(int)
     
     def __init__(self, input_path: str = str(), parent=None):
         super().__init__(parent)
@@ -116,11 +117,11 @@ class PlayerWidget(QtWidgets.QWidget):
         self.gain_spin_box_widget.setToolTip('Gain')
         self.gamma_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
         self.gamma_spin_box_widget.setToolTip('Gamma')
+        self.saturation_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
+        self.saturation_spin_box_widget.setToolTip('Saturation')
 
         self.frame_indicator_bar = FrameIndicatorBar()
         self.frame_indicator_bar.setMaximumHeight(2)
-
-
 
     def __init_ui(self):
         """Initialize the UI of the widget.
@@ -134,6 +135,7 @@ class PlayerWidget(QtWidgets.QWidget):
         # ---------
         self.top_right_layout.addWidget(self.gain_spin_box_widget)
         self.top_right_layout.addWidget(self.gamma_spin_box_widget)
+        self.top_right_layout.addWidget(self.saturation_spin_box_widget)  # Add saturation widget to layout
 
         # Set the focus policy to accept focus, and set the initial focus
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
@@ -158,6 +160,7 @@ class PlayerWidget(QtWidgets.QWidget):
 
         self.gain_spin_box_widget.setIcon(self.tabler_icon.flip.brightness_half)
         self.gamma_spin_box_widget.setIcon(self.tabler_icon.contrast)
+        self.saturation_spin_box_widget.setIcon(self.tabler_icon.color_filter)
 
         self.play_backward_button.setIcon(self.tabler_icon.flip.player_play)
         self.stop_button.setIcon(self.tabler_icon.player_stop)
@@ -185,6 +188,7 @@ class PlayerWidget(QtWidgets.QWidget):
         # self.lift_spin_box.valueChanged.connect(self.set_lift)
         self.gamma_spin_box_widget.valueChanged.connect(self.viewer.set_gamma)
         self.gain_spin_box_widget.valueChanged.connect(self.viewer.set_gain)
+        self.saturation_spin_box_widget.valueChanged.connect(self.viewer.set_saturation)
 
         self.current_frame_spin_box.valueChanged.connect(self._proxy_set_frame)
         self.frame_slider.valueChanged.connect(self._proxy_set_frame)
@@ -281,13 +285,16 @@ class PlayerWidget(QtWidgets.QWidget):
         self._is_setting_frame = True
 
         self.current_frame = frame_number
-        self.current_frame_spin_box.setValue(self.current_frame)
-        self.frame_slider.setValue(self.current_frame)
+        self.current_frame_spin_box.setValue(int(self.current_frame))
+        self.frame_slider.setValue(int(self.current_frame))
 
         self.viewer.set_frame(self.current_frame)
         self.frame_indicator_bar.update_frame_status(self.current_frame, FrameStatus.CACHED)
 
         self._is_setting_frame = False
+
+        # Emit the frame_changed signal
+        self.frame_changed.emit(self.current_frame)
 
     def next_frame(self, increment: int = 1):
         if self.current_frame == self.last_frame:
@@ -310,11 +317,11 @@ class PlayerWidget(QtWidgets.QWidget):
         super().closeEvent(event)
 
 if __name__ == "__main__":
-    import blackboard as bb
+    from blackboard import theme
     import sys
 
     app = QtWidgets.QApplication(sys.argv)
-    bb.theme.set_theme(app, theme='dark')
+    theme.set_theme(app, theme='dark')
 
     image_path = 'c:/Users/promm/Downloads/tmp.####.jpg'
     player_widget = PlayerWidget()
