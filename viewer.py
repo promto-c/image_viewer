@@ -17,7 +17,7 @@ from blackboard.utils.key_binder import KeyBinder
 
 # Local Imports
 # -------------
-from theme import theme
+from blackboard.theme import theme
 from tranformation import apply_transformation
 from entity import Entity, CanvasEntity, LayerEntity, ShapeEntity
 from shaders.viewer_shader import ViewerShaderProgram

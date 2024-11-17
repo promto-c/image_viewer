@@ -494,10 +494,13 @@ class MediaPlayerWidget(QtWidgets.QWidget):
         self.resize(800, 600)
         
         # Main layout
-        self.main_layout = QtWidgets.QHBoxLayout(self)
-        self.setLayout(self.main_layout)
+        self.main_layout = QtWidgets.QVBoxLayout(self)
         
-        # Playlist Widget
+        # Import Button
+        self.import_button = QtWidgets.QPushButton("Import Media", self)
+        self.main_layout.addWidget(self.import_button)
+        
+        # Playlist and Player Widget
         self.playlist_widget = QListWidgetWithDrop(self)
         self.playlist_widget.setMinimumWidth(200)
         self.playlist_widget.setDragDropMode(QtWidgets.QAbstractItemView.DragDropMode.DragDrop)
@@ -521,11 +524,20 @@ class MediaPlayerWidget(QtWidgets.QWidget):
         
     def __init_signals(self):
         """Connect signals and slots."""
+        self.import_button.clicked.connect(self.import_media)
         self.playlist_widget.itemDoubleClicked.connect(self.play_selected_media)
         self.playlist_widget.customContextMenuRequested.connect(self.show_playlist_context_menu)
         self.playlist_widget.files_dropped.connect(self.add_media_files)
         self.playlist_widget.paths_pasted.connect(self.add_media_files)
-        
+
+    def import_media(self):
+        """Open file dialog to import media and handle sequences."""
+        file_dialog = QtWidgets.QFileDialog(self)
+        file_dialog.setFileMode(QtWidgets.QFileDialog.FileMode.ExistingFiles)
+        if file_dialog.exec_():
+            selected_files = file_dialog.selectedFiles()
+            self.add_media_files(self._group_sequences(selected_files))
+
     def add_media_files(self, file_paths: List[str]):
         """Add media files or paths to the playlist."""
         for path in file_paths:
@@ -548,6 +560,36 @@ class MediaPlayerWidget(QtWidgets.QWidget):
             for item in self.playlist_widget.selectedItems():
                 self.playlist_widget.takeItem(self.playlist_widget.row(item))
                 
+    def _group_sequences(self, file_paths: List[str]) -> List[str]:
+        """Group files into sequences if they match a sequence pattern."""
+        sequence_dict = {}
+        
+        for path in file_paths:
+            dirname, filename = os.path.split(path)
+            base, ext = os.path.splitext(filename)
+            
+            # Match frame number pattern
+            match = re.match(r"(.+?)(\d+)$", base)
+            if match:
+                prefix, frame = match.groups()
+                template = f"{dirname}/{prefix}{'#' * len(frame)}{ext}"
+                
+                if template not in sequence_dict:
+                    sequence_dict[template] = []
+                sequence_dict[template].append(path)
+            else:
+                sequence_dict[path] = [path]
+        
+        # Sort frame files in each sequence
+        grouped_files = []
+        for template, files in sequence_dict.items():
+            if len(files) > 1:  # If a sequence is detected
+                grouped_files.append(template)
+            else:
+                grouped_files.extend(files)
+        
+        return grouped_files
+
 class QListWidgetWithDrop(QtWidgets.QListWidget):
     """QListWidget that accepts drag-and-drop of files and text paths, and supports paste action."""
     
