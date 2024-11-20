@@ -592,21 +592,21 @@ class MediaPlayerWidget(QtWidgets.QWidget):
 
 class QListWidgetWithDrop(QtWidgets.QListWidget):
     """QListWidget that accepts drag-and-drop of files and text paths, and supports paste action."""
-    
+
     files_dropped = QtCore.Signal(list)
     paths_pasted = QtCore.Signal(list)
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        
+
     def dragEnterEvent(self, event):
         """Handle drag enter event."""
         if event.mimeData().hasUrls() or event.mimeData().hasText():
             event.acceptProposedAction()
         else:
             super().dragEnterEvent(event)
-            
+
     def dragMoveEvent(self, event):
         """Handle drag move event."""
         if event.mimeData().hasUrls() or event.mimeData().hasText():
@@ -630,7 +630,7 @@ class QListWidgetWithDrop(QtWidgets.QListWidget):
             
     def keyPressEvent(self, event):
         """Handle key press events for paste action."""
-        if event.matches(QtGui.QKeySequence.Paste):
+        if event.matches(QtGui.QKeySequence.StandardKey.Paste):
             clipboard = QtWidgets.QApplication.clipboard()
             text = clipboard.text()
             if text:

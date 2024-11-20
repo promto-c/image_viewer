@@ -82,7 +82,7 @@ class Texture2D:
     PIXEL_DATA_MAPPING = {
         np.dtype('uint8'): GL.GL_UNSIGNED_BYTE,
         np.dtype('uint16'): GL.GL_UNSIGNED_BYTE,
-        np.dtype('float16'): GL.GL_FLOAT,
+        np.dtype('float16'): GL.GL_HALF_FLOAT,
         np.dtype('float32'): GL.GL_FLOAT,
     }
 
@@ -138,6 +138,9 @@ class Texture2D:
         # Set the texture minification/magnification filter
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+
+        # TODO: Set to appropriate as bytes per row
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
 
         # Use glTexImage2D to set the image texture in OpenGL
         GL.glTexImage2D(
