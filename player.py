@@ -297,15 +297,24 @@ class PlayerWidget(QtWidgets.QWidget):
             }
         ''')
 
-        self.gain_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
-        self.gain_spin_box_widget.setIcon(self.tabler_icon.flip.brightness_half)
-        self.gain_spin_box_widget.setToolTip('Gain')
-        self.gamma_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
-        self.gamma_spin_box_widget.setIcon(self.tabler_icon.contrast)
-        self.gamma_spin_box_widget.setToolTip('Gamma')
-        self.saturation_spin_box_widget = DoubleSpinBoxWidget(default_value=1.0, parent=self)
-        self.saturation_spin_box_widget.setIcon(self.tabler_icon.color_filter)
-        self.saturation_spin_box_widget.setToolTip('Saturation')
+        self.gain_spin_box_widget = DoubleSpinBoxWidget(
+            default_value=1.0, 
+            icon=self.tabler_icon.flip.brightness_half, 
+            toolTip='Gain',
+            parent=self,
+        )
+        self.gamma_spin_box_widget = DoubleSpinBoxWidget(
+            default_value=1.0,
+            icon=self.tabler_icon.contrast,
+            toolTip='Gamma',
+            parent=self,
+        )
+        self.saturation_spin_box_widget = DoubleSpinBoxWidget(
+            default_value=1.0,
+            icon=self.tabler_icon.color_filter,
+            toolTip='Saturation',
+            parent=self,
+        )
 
         # Top Right
         # ---------

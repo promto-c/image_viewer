@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from qtpy import QtCore, QtGui, QtWidgets
 from tablerqicon import TablerQIcon
 
-from theme import theme
+from blackboard import theme
 
 from nodes.tracker_node.tracker_node import TrackerNode
 from nodes.read_node import ReadNode
