@@ -14,6 +14,8 @@ from blackboard.utils.image_utils import ImageSequence
 from blackboard.utils.key_binder import KeyBinder
 from blackboard.widgets.double_spin_box import DoubleSpinBoxWidget
 from blackboard.widgets.frame_indicator_widget import FrameIndicatorBar, FrameStatus
+from blackboard.widgets.gallery_view import GalleryWidget
+from blackboard.utils.file_path_utils import SequenceFileUtil
 
 # Local Imports
 # -------------
@@ -512,9 +514,12 @@ class MediaPlayerWidget(QtWidgets.QWidget):
         # Playlist and Player Widget
         self.playlist_widget = QListWidgetWithDrop(self)
         self.playlist_widget.setMinimumWidth(200)
+
+        self.playlist_widget.set_fields(SequenceFileUtil.FILE_INFO_FIELDS)
         self.playlist_widget.setDragDropMode(QtWidgets.QAbstractItemView.DragDropMode.DragDrop)
         self.playlist_widget.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
         self.playlist_widget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.playlist_widget.set_image_field('file_path')
         self.playlist_widget.setAcceptDrops(True)
         
         # Player Widget
@@ -550,13 +555,12 @@ class MediaPlayerWidget(QtWidgets.QWidget):
     def add_media_files(self, file_paths: List[str]):
         """Add media files or paths to the playlist."""
         for path in file_paths:
-            item = QtWidgets.QListWidgetItem(QtCore.QFileInfo(path).fileName())
-            item.setData(QtCore.Qt.ItemDataRole.UserRole, path)
-            self.playlist_widget.addItem(item)
-            
+            data_dict = SequenceFileUtil.extract_file_info(path)
+            self.playlist_widget.add_item(data_dict)
+
     def play_selected_media(self, item: QtWidgets.QListWidgetItem):
         """Play the selected media item."""
-        media_path = item.data(QtCore.Qt.ItemDataRole.UserRole)
+        media_path = item.get_value('file_path')
         image_sequence = ImageSequence(media_path)
         self.player_widget.set_image(image_sequence)
         
@@ -599,7 +603,7 @@ class MediaPlayerWidget(QtWidgets.QWidget):
         
         return grouped_files
 
-class QListWidgetWithDrop(QtWidgets.QListWidget):
+class QListWidgetWithDrop(GalleryWidget):
     """QListWidget that accepts drag-and-drop of files and text paths, and supports paste action."""
 
     files_dropped = QtCore.Signal(list)
