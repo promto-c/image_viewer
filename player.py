@@ -33,26 +33,6 @@ PLAYER_WIDGET_UI = PACKAGE_ROOT / 'ui/player_widget.ui'
 
 # Class Definitions
 # -----------------
-# NOTE: Tmp
-def create_shadow_effect(blur_radius=30, x_offset=0, y_offset=4, color=QtGui.QColor(0, 0, 0, 150)):
-    """Create and return a shadow effect for the floating card or any widget.
-
-    Args:
-        blur_radius (int): The blur radius of the shadow.
-        x_offset (int): The horizontal offset of the shadow.
-        y_offset (int): The vertical offset of the shadow.
-        color (QColor): The color of the shadow effect.
-
-    Returns:
-        QGraphicsDropShadowEffect: Configured shadow effect.
-    """
-    shadow = QtWidgets.QGraphicsDropShadowEffect()
-    shadow.setBlurRadius(blur_radius)
-    shadow.setXOffset(x_offset)
-    shadow.setYOffset(y_offset)
-    shadow.setColor(color)
-    return shadow
-
 class GroupWidget(QtWidgets.QWidget):
     def __init__(self, *buttons):
         super().__init__()
@@ -251,7 +231,7 @@ class PlayerWidget(QtWidgets.QWidget):
         self.top_left_layout = QtWidgets.QHBoxLayout(self.top_left_widget)
         self.top_left_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.top_left_widget.setGraphicsEffect(create_shadow_effect())
+        self.top_left_widget.setGraphicsEffect(DropShadowEffect())
 
         # prefetch_button
         self.prefetch_button = QtWidgets.QPushButton("Prefetch", self.top_left_widget)
@@ -281,7 +261,7 @@ class PlayerWidget(QtWidgets.QWidget):
         # Create Widgets
         # --------------
         self.view_tool_bar = QtWidgets.QToolBar(self)
-        self.view_tool_bar.setGraphicsEffect(create_shadow_effect())
+        self.view_tool_bar.setGraphicsEffect(DropShadowEffect())
         self.view_tool_bar.setStyleSheet('''
             QToolBar {
                 background: transparent;
@@ -331,7 +311,7 @@ class PlayerWidget(QtWidgets.QWidget):
         # ------
         # Controller bar at the bottom
         self.controller_bar = ControllerBarWidget(parent=self)
-        self.controller_bar.setGraphicsEffect(create_shadow_effect())
+        self.controller_bar.setGraphicsEffect(DropShadowEffect())
         self.overlay_layout.addWidget(self.controller_bar, alignment=QtCore.Qt.AlignmentFlag.AlignBottom)
 
         # Add reference
