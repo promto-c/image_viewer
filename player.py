@@ -16,6 +16,7 @@ from blackboard.widgets.double_spin_box import DoubleSpinBoxWidget
 from blackboard.widgets.frame_indicator_widget import FrameIndicatorBar, FrameStatus
 from blackboard.widgets.gallery_view import GalleryWidget
 from blackboard.utils.file_path_utils import SequenceFileUtil
+from blackboard.widgets.graphic_effect import DropShadowEffect
 
 # Local Imports
 # -------------
