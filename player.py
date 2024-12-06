@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 # Third Party Imports
 # -------------------
-from qtpy import QtCore, QtGui, QtWidgets, uic
+from qtpy import QtCore, QtGui, QtWidgets
 from tablerqicon import TablerQIcon
 from blackboard.utils.image_utils import ImageSequence
 from blackboard.utils.key_binder import KeyBinder
@@ -17,58 +17,17 @@ from blackboard.widgets.frame_indicator_widget import FrameIndicatorBar, FrameSt
 from blackboard.widgets.gallery_view import GalleryWidget
 from blackboard.utils.file_path_utils import SequenceFileUtil
 from blackboard.widgets.graphic_effect import DropShadowEffect
+from blackboard.widgets.group_widget import GroupWidget
 
 # Local Imports
 # -------------
 from viewer import ImageViewerGLWidget
-
-from utils.path_utils import PACKAGE_ROOT
 from utils.conversion_utils import fps_to_interval_msc
 from nodes.node import Node
 
 
-# Constant Definitions
-# --------------------
-PLAYER_WIDGET_UI = PACKAGE_ROOT / 'ui/player_widget.ui'
-
-
 # Class Definitions
 # -----------------
-class GroupWidget(QtWidgets.QWidget):
-    def __init__(self, *buttons):
-        super().__init__()
-        layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)  # No space between buttons
-        self.setMaximumHeight(22)
-
-        # Set custom properties for styling based on button position
-        if buttons:
-            buttons[0].setProperty("position", "first")
-            buttons[-1].setProperty("position", "last")
-
-        for button in buttons:
-            layout.addWidget(button)
-
-        # Apply the stylesheet to the container (QFrame) only
-        self.setStyleSheet("""
-            QWidget {
-                border-radius: 0;
-                border-left: none;
-                border-right: none;
-            }
-            QWidget[position="first"] {
-                border-top-left-radius: 4;
-                border-bottom-left-radius: 4;
-                border-left: 1px solid gray;
-            }
-            QWidget[position="last"] {
-                border-top-right-radius: 4;
-                border-bottom-right-radius: 4;
-                border-right: 1px solid gray;
-            }
-        """)
-
 class ImageLoader(QtCore.QRunnable):
     def __init__(self, widget: 'PlayerWidget', frame: int):
         super().__init__()
