@@ -177,13 +177,14 @@ class Tracker:
         if detector is not None:
             self.set_detector(detector, parameters)
 
-    def set_detector(self, detector: Union['FeatureDetector', Any], parameters: Dict[str, Any] = {}):
+    def set_detector(self, detector: Union['FeatureDetector', Any], parameters: Optional[Dict[str, Any]] = None):
         """Set the feature detector to be used by the tracker.
 
         Args:
             detector (Union[FeatureDetector, Any]): The feature detector or its name.
             parameters (Dict[str, Any]): Parameters to initialize the feature detector.
         """
+        parameters = parameters or {}
         if isinstance(detector, FeatureDetector):
             self.feature_detector = detector(**parameters)
         else:
